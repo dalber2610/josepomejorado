@@ -1,0 +1,76 @@
+# ==========================================================
+# .gitignore - Reglas de Exclusión de Seguridad y Artefactos
+# ==========================================================
+
+# 1. Entornos Virtuales y Caché de Python (NUNCA empaquetar)
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+**/*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+/build/
+/develop-eggs/
+/dist/
+/downloads/
+/eggs/
+/.eggs/
+/lib/
+/lib64/
+/parts/
+/sdist/
+/var/
+/wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 2. Bases de Datos Locales y Archivos de Instancia (CRÍTICO: Evita fuga de datos/hashes/OTP)
+instance/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+*.db-journal
+
+# 3. Archivos de Entorno y Secretos (CRÍTICO DE SEGURIDAD)
+.env
+.env.local
+.env.*.local
+venv/.env*
+*.pem
+*.key
+*.crt
+
+# 4. Artefactos de Compilación Flutter / Android / iOS
+driver_mobile_flutter/.dart_tool/
+driver_mobile_flutter/build/
+driver_mobile_flutter/.packages
+driver_mobile_flutter/.pub-cache/
+driver_mobile_flutter/.pub/
+
+# 5. Logs y Reportes de Pruebas
+logs/
+*.log
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 6. IDE, Editores y Sistema Operativo
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 7. Empaquetados de Distribución
+releases/
+*.zip
+*.tar.gz
