@@ -1,0 +1,33 @@
+# ==========================================================
+# .dockerignore - Aislamiento de Contexto para Contenedores Linux
+# ==========================================================
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+venv/
+.venv/
+env/
+ENV/
+instance/
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+.vscode/
+.idea/
+logs/
+*.log
+tests/
+driver_mobile_flutter/
+releases/
+*.zip
+*.bat
+*.ps1
+README.md
+

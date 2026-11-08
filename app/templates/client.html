@@ -1,0 +1,1998 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Josepo - Auxilio Vial y Garantía Segura</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #0B1120;
+            --bg-card: #1E293B;
+            --border-color: #334155;
+            --primary-emerald: #10B981;
+            --primary-emerald-glow: rgba(16, 185, 129, 0.35);
+            --secondary-blue: #3B82F6;
+            --danger-red: #EF4444;
+            --warning-amber: #F59E0B;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--bg-card);
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1000;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brand-badge {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            color: white;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .brand-logo h1 {
+            font-size: 18px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .bcv-rate-badge {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--primary-emerald);
+        }
+
+        main {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #client-map {
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+        }
+
+        /* Tarjeta Flotante Inferior de Solicitud */
+        .bottom-card {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.93));
+            backdrop-filter: blur(12px);
+            padding: 18px;
+            border-top: 1px solid var(--border-color);
+            border-radius: 24px 24px 0 0;
+            z-index: 500;
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+            max-height: 58vh;
+            overflow-y: auto;
+        }
+
+        .location-pickers {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .picker-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .picker-icon {
+            font-size: 18px;
+        }
+
+        .picker-text {
+            flex: 1;
+        }
+
+        .picker-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .picker-val {
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+
+        /* Desglose de Precios */
+        .quote-box {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .quote-item {
+            text-align: center;
+        }
+
+        .quote-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .quote-value {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--primary-emerald);
+        }
+
+        /* Botón de Pánico */
+        .btn-panic {
+            width: 100%;
+            background: linear-gradient(135deg, #EF4444, #B91C1C);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+            transition: transform 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-panic:active {
+            transform: scale(0.98);
+        }
+
+        /* Panel de Seguimiento en Vivo */
+        .live-tracking-panel {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 16px;
+            border: 1px solid var(--primary-emerald);
+            margin-bottom: 10px;
+        }
+
+        .status-tracker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .radar-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(16, 185, 129, 0.2);
+            border-top-color: var(--primary-emerald);
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tracker-info h3 {
+            font-size: 15px;
+            font-weight: 800;
+        }
+
+        .tracker-info p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .btn-cancel {
+            width: 100%;
+            background: #334155;
+            color: var(--text-muted);
+            border: none;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        /* Sección de Garantía Escrow / Pago Móvil */
+        .escrow-card {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px;
+            margin-top: 12px;
+        }
+
+        .escrow-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .escrow-badge {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary-emerald);
+            border: 1px solid var(--primary-emerald);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+        }
+
+        .escrow-badge.unpaid {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning-amber);
+            border-color: var(--warning-amber);
+        }
+
+        /* Modal Login Cliente */
+        #client-login-modal {
+            display: flex;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-main);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .tab-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            background: #0F172A;
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 8px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: white;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .btn-auth {
+            width: 100%;
+            background: var(--primary-emerald);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 15px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .btn-secondary {
+            background: #334155;
+            color: white;
+        }
+
+        .btn-user-badge {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-user-badge:hover {
+            border-color: var(--primary-emerald);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .escrow-teaser-card {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .escrow-teaser-card:hover {
+            background: rgba(16, 185, 129, 0.14);
+        }
+
+        /* Fase 5: Botones Flotantes de Gamificación, Radar Vial, SOS Familiar y Voz */
+        .floating-action-dock {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            z-index: 600;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fab-btn {
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 14px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+            transition: all 0.2s ease;
+        }
+
+        .fab-btn:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-emerald);
+        }
+
+        .fab-btn.voice-active {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            border-color: #FCA5A5;
+            animation: pulseVoice 1.2s infinite;
+        }
+
+        .fab-btn.sos-family {
+            border-color: rgba(239, 68, 68, 0.65);
+            background: linear-gradient(135deg, rgba(185, 28, 28, 0.9), rgba(15, 23, 42, 0.95));
+        }
+
+        @keyframes pulseVoice {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .points-pill-btn {
+            background: rgba(16, 185, 129, 0.14);
+            border: 1px solid var(--primary-emerald);
+            color: var(--primary-emerald);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .reward-item-card {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .traffic-item-card {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+
+        .chip-btn {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .chip-btn:hover {
+            border-color: var(--secondary-blue);
+            color: var(--secondary-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Modal Login / Verificación Telefónica OTP -->
+    <div id="client-login-modal">
+        <div class="modal-box">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                <h2 style="font-size: 20px; font-weight: 800;">Acceso de Usuario</h2>
+                <button onclick="closeLoginModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer; line-height:1;" title="Cerrar">✕</button>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Identifícate para solicitar auxilio vial protegido con garantía</p>
+
+            <!-- Selector de Método: SOS OTP (Recomendado) vs Contraseña -->
+            <div class="tab-selector">
+                <button class="tab-btn active" id="tab-otp" onclick="setAuthTab('otp')">⚡ SOS SMS / WhatsApp</button>
+                <button class="tab-btn" id="tab-pass" onclick="setAuthTab('pass')">🔑 Contraseña</button>
+            </div>
+
+            <!-- Formulario 1: Verificación OTP de Emergencia (Por defecto) -->
+            <div id="form-otp">
+                <div class="form-group">
+                    <label>Número de Teléfono Móvil:</label>
+                    <input type="tel" id="otp-phone" placeholder="+584141234567" value="+584140000002">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">💡 Demo rápido: número precargado <b>+584140000002</b></div>
+                </div>
+                <button class="btn-auth btn-secondary" id="btn-request-otp" onclick="requestOtpCode()">
+                    📲 Enviar Código de Verificación
+                </button>
+
+                <div id="otp-input-section" style="display: none; margin-top: 14px;">
+                    <div class="form-group">
+                        <label>Código de 6 dígitos recibido:</label>
+                        <input type="text" id="otp-code" maxlength="6" placeholder="123456" style="text-align: center; font-size: 18px; letter-spacing: 4px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Tu Nombre Completo (Opcional):</label>
+                        <input type="text" id="otp-name" placeholder="Juan Pérez">
+                    </div>
+                    <button class="btn-auth" onclick="verifyOtpAndLogin()">Validar Código y Entrar</button>
+                </div>
+            </div>
+
+            <!-- Formulario 2: Contraseña Clásica -->
+            <div id="form-pass" style="display: none;">
+                <div class="form-group">
+                    <label>Correo Electrónico:</label>
+                    <input type="email" id="client-email" value="cliente@ejemplo.com">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña:</label>
+                    <input type="password" id="client-password" value="Cliente2026!">
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">💡 Demo: <b>cliente@ejemplo.com</b> / <b>Cliente2026!</b></div>
+                </div>
+                <button class="btn-auth" onclick="loginClientPassword()">Entrar con Contraseña</button>
+            </div>
+
+            <div id="modal-logout-section" style="display: none; margin-top: 14px; text-align: center; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <button onclick="logoutClient()" style="background: transparent; border: 1px solid var(--danger-red); color: var(--danger-red); padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">
+                    🚪 Cerrar Sesión Activa
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Información de Garantía Pago Móvil Escrow -->
+    <div id="escrow-info-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:20px;">
+        <div class="modal-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--primary-emerald);">🔒 Garantía Escrow 85/15</h3>
+                <button onclick="closeEscrowInfoModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+            </div>
+            <p style="font-size: 13px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
+                Para garantizar que el operador de la grúa acuda de inmediato a tu rescate y evitar falsas solicitudes, Josepo utiliza un modelo de <b>Garantía en Depósito (Escrow)</b>:
+            </p>
+            <ul style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-left: 18px; margin-bottom: 16px;">
+                <li><b>85% para el Chofer:</b> Se libera automáticamente a su cuenta de Pago Móvil una vez que el vehículo esté a salvo en el destino.</li>
+                <li><b>15% de Plataforma:</b> Cubre el monitoreo por telemetría GPS satelital en vivo y soporte 24/7.</li>
+                <li><b>Protección Total:</b> Si cancelas oportunamente o no hay disponibilidad, tu garantía es 100% reembolsable.</li>
+            </ul>
+            <button class="btn-auth" onclick="closeEscrowInfoModal()">Entendido ✓</button>
+        </div>
+    </div>
+
+    <!-- Modal Fase 4: Calificación y Acta de Entrega Certificada -->
+    <div id="rating-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:20px;">
+        <div class="modal-box" style="text-align:center;">
+            <div style="font-size:40px; margin-bottom:8px;">⭐</div>
+            <h2 style="font-size:20px; font-weight:800; margin-bottom:6px;">¡Auxilio Vial Concluido!</h2>
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Califica la atención del chofer y obtén tu Acta Digital de Remolque con validez para seguros.</p>
+            
+            <div class="form-group" style="margin-bottom:12px; text-align:left;">
+                <label>Puntuación del Operador:</label>
+                <select id="rating-stars" style="font-size:15px; font-weight:700; color:var(--warning-amber);">
+                    <option value="5">⭐⭐⭐⭐⭐ 5 Estrellas (Excelente)</option>
+                    <option value="4">⭐⭐⭐⭐ 4 Estrellas (Muy Bueno)</option>
+                    <option value="3">⭐⭐⭐ 3 Estrellas (Aceptable)</option>
+                    <option value="2">⭐⭐ 2 Estrellas (Regular)</option>
+                    <option value="1">⭐ 1 Estrella (Deficiente)</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="text-align:left;">
+                <label>Comentario o Reseña:</label>
+                <input type="text" id="rating-feedback" placeholder="Excelente puntualidad y cuidado del auto...">
+            </div>
+
+            <button class="btn-auth" onclick="submitRatingAndShowReceipt()">Firmar Entrega y Calificar ✓</button>
+        </div>
+    </div>
+
+    <!-- Modal Fase 5: Club Guardián Vial, Puntos y Talleres Aliados -->
+    <div id="rewards-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+        <div class="modal-box" style="max-width: 480px; max-height: 88vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--primary-emerald);">🏆 Club Guardián Vial & Aliados</h3>
+                <button onclick="closeRewardsModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+            </div>
+
+            <!-- Resumen de Reputación del Conductor/Usuario -->
+            <div style="background: linear-gradient(135deg, #0F172A, #1E293B); border: 1px solid var(--primary-emerald); border-radius: 14px; padding: 14px; margin-bottom: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Tu Saldo Disponible</div>
+                        <div style="font-size: 24px; font-weight: 800; color: var(--primary-emerald);" id="modal-points-balance">0 pts</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Nivel de Reputación</div>
+                        <div style="font-size: 14px; font-weight: 800; color: var(--warning-amber);" id="modal-reputation-level">🥉 BRONCE</div>
+                    </div>
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;" id="modal-next-level-hint">
+                    Reporta incidentes (+25 pts) o confirma reportes de otros conductores (+10 pts) para subir de nivel.
+                </div>
+            </div>
+
+            <!-- Pestañas del Club Vial -->
+            <div class="tab-selector">
+                <button class="tab-btn active" id="tab-catalog" onclick="setRewardsTab('catalog')">🛠️ Talleres Aliados</button>
+                <button class="tab-btn" id="tab-coupons" onclick="setRewardsTab('coupons')">🎟️ Mis Cupones</button>
+                <button class="tab-btn" id="tab-ranking" onclick="setRewardsTab('ranking')">🏅 Top Vial</button>
+            </div>
+
+            <div id="rewards-catalog-section">
+                <div id="rewards-list-container">Cargando catálogo de talleres...</div>
+            </div>
+
+            <div id="rewards-coupons-section" style="display: none;">
+                <div id="coupons-list-container">Aún no has canjeado cupones.</div>
+            </div>
+
+            <div id="rewards-ranking-section" style="display: none;">
+                <div id="ranking-list-container">Cargando ranking...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Fase 5: Radar Vial y Validación Cruzada de Tráfico -->
+    <div id="traffic-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+        <div class="modal-box" style="max-width: 480px; max-height: 88vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--warning-amber);">🚧 Radar Vial & Validación Cruzada</h3>
+                <button onclick="closeTrafficModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+            </div>
+
+            <!-- Crear Reporte (+25 pts) -->
+            <div style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; margin-bottom: 14px;">
+                <div style="font-size: 13px; font-weight: 800; margin-bottom: 8px; color: var(--primary-emerald);">
+                    ➕ Reportar Incidente en mi Ubicación (+25 pts)
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label>Tipo de Incidente:</label>
+                    <select id="traffic-type">
+                        <option value="ACCIDENT">💥 Accidente Vial / Choque</option>
+                        <option value="HAZARD">⚠️ Vehículo Accidentado / Obstáculo en Vía</option>
+                        <option value="HEAVY_TRAFFIC">🚗 Cola Fuerte / Retención</option>
+                        <option value="ROADBLOCK">🚧 Vía Cerrada / Obras</option>
+                        <option value="POLICE">🚓 Punto de Control / Alcabalas</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label>Descripción breve para otros conductores:</label>
+                    <input type="text" id="traffic-desc" placeholder="Ej: Vehículo varado en canal rápido autopista..." value="Vehículo accidentado en el canal derecho, precaución.">
+                </div>
+                <button class="btn-auth" style="margin-top: 4px; padding: 10px; font-size: 13px;" onclick="submitTrafficReport()">
+                    📢 Publicar Reporte y Ganar +25 Puntos
+                </button>
+            </div>
+
+            <!-- Lista de Reportes para Confirmación Cruzada (+10 pts) -->
+            <div style="font-size: 13px; font-weight: 800; margin-bottom: 8px;">
+                👍 Confirmar Reportes de Otros Conductores (+10 pts)
+            </div>
+            <div id="traffic-reports-list">Cargando reportes cercanos...</div>
+        </div>
+    </div>
+
+    <!-- Modal Fase 5: Botón SOS Familiar con Enlace de Rastreo en Vivo -->
+    <div id="family-sos-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+        <div class="modal-box" style="max-width: 440px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--danger-red);">🆘 Botón SOS Familiar en Vivo</h3>
+                <button onclick="closeFamilySosModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+                Envía una alerta inmediata por <b>SMS / WhatsApp</b> a tu familiar de confianza con tus coordenadas GPS exactas y un <b>enlace de rastreo en vivo</b> de tu grúa.
+            </p>
+
+            <div class="form-group">
+                <label>Nombre del Familiar / Contacto de Emergencia:</label>
+                <input type="text" id="sos-contact-name" placeholder="Ej: María Pérez (Esposa / Madre)" value="María Pérez (Familiar SOS)">
+            </div>
+            <div class="form-group">
+                <label>Teléfono del Familiar (SMS / WhatsApp):</label>
+                <input type="tel" id="sos-contact-phone" placeholder="+584129998877" value="+584129998877">
+            </div>
+            <div class="form-group">
+                <label>Mensaje de Estado (Opcional):</label>
+                <input type="text" id="sos-custom-msg" value="Sufrí una avería vial. Estoy solicitando grúa en Josepo, sigue mi ubicación aquí.">
+            </div>
+
+            <button class="btn-panic" style="margin-top: 8px;" onclick="triggerFamilySos('BUTTON')">
+                📲 ENVIAR ALERTA SOS A MI FAMILIAR AHORA
+            </button>
+
+            <div id="sos-result-box" style="display: none; margin-top: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--primary-emerald); border-radius: 12px;">
+                <div style="font-size: 12px; font-weight: 800; color: var(--primary-emerald); margin-bottom: 4px;">✓ Alerta SMS/WhatsApp Despachada</div>
+                <div style="font-size: 11px; color: var(--text-main); word-break: break-all; margin-bottom: 6px;" id="sos-result-text"></div>
+                <a id="sos-tracking-link" href="#" target="_blank" style="font-size: 12px; font-weight: 800; color: var(--secondary-blue); text-decoration: underline;">
+                    🛰️ Abrir Enlace de Rastreo Familiar en Vivo ↗
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Fase 5: Asistente de Comandos de Voz Manos Libres (Web Speech API) -->
+    <div id="voice-assistant-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+        <div class="modal-box" style="text-align: center; max-width: 420px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="font-size: 17px; font-weight: 800; color: var(--secondary-blue);">🎙️ Control por Voz Manos Libres</h3>
+                <button onclick="closeVoiceModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
+                Ideal en emergencias nocturnas o accidentes. Habla al micrófono o pulsa un comando de voz rápido:
+            </p>
+
+            <div id="voice-status-box" style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 14px;">
+                <div style="font-size: 32px; margin-bottom: 6px;" id="voice-mic-icon">🎙️</div>
+                <div style="font-size: 14px; font-weight: 800;" id="voice-status-title">Listo para escuchar</div>
+                <div style="font-size: 12px; color: var(--primary-emerald); margin-top: 4px;" id="voice-transcript-preview">Di: "Solicitar grúa", "SOS familiar" o "Reportar accidente"</div>
+            </div>
+
+            <button class="btn-panic" id="btn-start-listening" onclick="startSpeechRecognition()" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8); box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4); margin-bottom: 14px;">
+                🎙️ Hablar Ahora (Web Speech API)
+            </button>
+
+            <div style="text-align: left; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 700;">
+                ⚡ Simulador de Comandos de Voz (Prueba instantánea sin micrófono):
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button class="chip-btn" onclick="processVoiceCommand('solicitar grúa urgente')">🗣️ "Solicitar grúa urgente"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('enviar alerta sos familiar')">🗣️ "Enviar alerta SOS familiar"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('reportar accidente en la vía')">🗣️ "Reportar accidente en la vía"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('ver mis puntos y recompensas')">🗣️ "Ver mis puntos y recompensas"</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barra de Navegación Superior -->
+    <header>
+        <div class="brand-logo">
+            <span class="brand-badge">SOS</span>
+            <h1>JOSEPO Auxilio</h1>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <button class="points-pill-btn" onclick="openRewardsModal()" title="Club Guardián Vial y Talleres Aliados">
+                🏆 <span id="user-points-badge">0 pts • BRONCE</span>
+            </button>
+            <div class="bcv-rate-badge" id="bcv-badge">
+                BCV: Cargando...
+            </div>
+            <button class="btn-user-badge" id="btn-user-profile" onclick="openLoginModal()" title="Acceso / Cambiar Usuario">
+                <span id="user-display-name">⚡ Ingresar</span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Mapa Interactivo Leaflet -->
+        <div id="client-map"></div>
+
+        <!-- Botones Flotantes Fase 5: Voz Manos Libres, SOS Familiar y Radar Vial -->
+        <div class="floating-action-dock">
+            <button class="fab-btn" id="fab-voice-btn" onclick="openVoiceModal()" title="Comandos de Voz Manos Libres (Web Speech API)">
+                <span>🎙️</span> <span>Voz SOS</span>
+            </button>
+            <button class="fab-btn sos-family" onclick="openFamilySosModal()" title="Enviar Alerta SMS/WhatsApp a Familiar con Rastreo en Vivo">
+                <span>🆘</span> <span>SOS Familiar</span>
+            </button>
+            <button class="fab-btn" onclick="openTrafficModal()" title="Reportar Tráfico (+25 pts) o Confirmar Reportes (+10 pts)">
+                <span>🚧</span> <span>Radar Vial (+Pts)</span>
+            </button>
+        </div>
+
+        <!-- Panel Flotante de Solicitud -->
+        <div class="bottom-card">
+            
+            <!-- Selector de Puntos -->
+            <div id="selection-panel">
+                <div class="location-pickers">
+                    <div class="picker-box" onclick="useCurrentGpsLocation()">
+                        <span class="picker-icon">📍</span>
+                        <div class="picker-text">
+                            <div class="picker-label">Lugar del Siniestro / Avería</div>
+                            <div class="picker-val" id="origin-display">Detectando ubicación GPS...</div>
+                        </div>
+                        <button style="background:var(--secondary-blue); border:none; color:white; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700;">MI GPS</button>
+                    </div>
+
+                    <div class="picker-box" onclick="alert('Haz click en el mapa en el punto donde deseas remolcar el vehículo.')">
+                        <span class="picker-icon">🏁</span>
+                        <div class="picker-text">
+                            <div class="picker-label">Destino (Taller / Residencia)</div>
+                            <div class="picker-val" id="dest-display">Haz click en el mapa para marcar destino</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cotización en Vivo -->
+                <div class="quote-box" id="quote-container">
+                    <div class="quote-item">
+                        <div class="quote-label">Grúa más cercana</div>
+                        <div class="quote-value" id="quote-dist">-- km</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">Tarifa Estimada</div>
+                        <div class="quote-value" id="quote-usd">-- USD</div>
+                    </div>
+                    <div class="quote-item">
+                        <div class="quote-label">En Bolívares</div>
+                        <div class="quote-value" id="quote-ves" style="color:var(--text-main);">-- VES</div>
+                    </div>
+                </div>
+
+                <!-- Banner Informativo de Garantía Pago Móvil -->
+                <div class="escrow-teaser-card" onclick="openEscrowInfoModal()">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 18px;">🛡️</span>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 800; color: var(--primary-emerald);">Garantía de Pago Móvil Escrow (85/15)</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Tus fondos se congelan seguros y solo se liberan al completar el viaje.</div>
+                            </div>
+                        </div>
+                        <span style="font-size: 11px; color: var(--secondary-blue); font-weight: 700; white-space: nowrap;">Info ℹ️</span>
+                    </div>
+                </div>
+
+                <button class="btn-panic" onclick="confirmTowRequest()">
+                    🚨 SOLICITAR GRÚA AHORA
+                </button>
+            </div>
+
+            <!-- Panel de Seguimiento en Vivo (Cuando el servicio está solicitado) -->
+            <div class="live-tracking-panel" id="tracking-panel">
+                <div class="status-tracker">
+                    <div class="radar-spinner" id="tracking-spinner"></div>
+                    <div class="tracker-info">
+                        <h3 id="tracking-title">Buscando grúa...</h3>
+                        <p id="tracking-subtitle">Esperando confirmación del operador más cercano (30s)</p>
+                    </div>
+                </div>
+
+                <div id="assigned-driver-card" style="display:none; background:#0F172A; padding:12px; border-radius:12px; margin-bottom:10px; border:1px solid var(--border-color);">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="font-size:12px; color:var(--text-muted);">Unidad Asignada:</span>
+                        <span style="font-size:13px; font-weight:800; color:var(--primary-emerald);" id="assigned-plate">GRU-001</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="font-size:12px; color:var(--text-muted);">Conductor:</span>
+                        <span style="font-size:13px; font-weight:700;" id="assigned-driver-name">Juan Conductor</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="font-size:12px; color:var(--text-muted);">Distancia restante:</span>
+                        <span style="font-size:13px; font-weight:800; color:var(--secondary-blue);" id="assigned-distance">Calculando...</span>
+                    </div>
+                </div>
+
+                <!-- Sección Fase 3: Garantía de Pago Móvil en Escrow -->
+                <div class="escrow-card" id="escrow-section">
+                    <div class="escrow-header">
+                        <div style="font-size: 13px; font-weight: 800;">🔒 Garantía Escrow (Pago Móvil)</div>
+                        <span class="escrow-badge unpaid" id="escrow-status-badge">PENDIENTE</span>
+                    </div>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+                        Para evitar falsas alarmas, registra tu pago móvil de garantía. Los fondos se mantienen congelados de forma segura y solo se transferirán al chofer al completar el traslado.
+                    </p>
+
+                    <!-- Formulario de Pago Móvil -->
+                    <div id="pago-movil-form">
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label>Banco Emisor:</label>
+                            <select id="pm-bank">
+                                <option value="">Cargando bancos...</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <div class="form-group" style="flex: 1; margin-bottom: 8px;">
+                                <label>Cédula Pagador:</label>
+                                <input type="text" id="pm-id-card" placeholder="V-12345678" value="V-28123456">
+                            </div>
+                            <div class="form-group" style="flex: 1; margin-bottom: 8px;">
+                                <label>Teléfono Pagador:</label>
+                                <input type="tel" id="pm-phone" placeholder="04141234567" value="04140000002">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label>Número de Referencia (4 a 8 dígitos):</label>
+                            <input type="text" id="pm-reference" placeholder="Ej: 894512" maxlength="12">
+                        </div>
+                        <button class="btn-auth" style="margin-top: 0; padding: 10px; font-size: 13px;" onclick="submitPagoMovilEscrow()">
+                            🔒 Validar y Congelar en Garantía
+                        </button>
+                    </div>
+
+                    <div id="pago-movil-confirmed" style="display: none; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid var(--primary-emerald);">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--primary-emerald);">✓ Garantía Retenida en Escrow</div>
+                        <div style="font-size: 11px; color: var(--text-muted);" id="pm-confirmed-ref">Ref #...</div>
+                    </div>
+                </div>
+
+                <button class="btn-cancel" onclick="cancelCurrentService()">Cancelar Solicitud</button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Leaflet & Socket.IO -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script>
+        let map;
+        let originMarker, destMarker;
+        let truckMarkers = {};
+        let activeTruckMarker = null;
+        let socket;
+        let clientToken = localStorage.getItem('josepo_client_token');
+        let clientUser = null;
+        let originCoords = [10.5000, -66.9167];
+        let destCoords = null;
+        let currentRequestId = null;
+
+        function setAuthTab(tab) {
+            document.getElementById('tab-pass').className = `tab-btn ${tab === 'pass' ? 'active' : ''}`;
+            document.getElementById('tab-otp').className = `tab-btn ${tab === 'otp' ? 'active' : ''}`;
+            document.getElementById('form-pass').style.display = tab === 'pass' ? 'block' : 'none';
+            document.getElementById('form-otp').style.display = tab === 'otp' ? 'block' : 'none';
+        }
+
+        function openEscrowInfoModal() {
+            document.getElementById('escrow-info-modal').style.display = 'flex';
+        }
+
+        function closeEscrowInfoModal() {
+            document.getElementById('escrow-info-modal').style.display = 'none';
+        }
+
+        function openLoginModal() {
+            const modal = document.getElementById('client-login-modal');
+            const logoutSec = document.getElementById('modal-logout-section');
+            if (clientToken) {
+                logoutSec.style.display = 'block';
+            } else {
+                logoutSec.style.display = 'none';
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeLoginModal() {
+            document.getElementById('client-login-modal').style.display = 'none';
+        }
+
+        function logoutClient() {
+            localStorage.removeItem('josepo_client_token');
+            clientToken = null;
+            clientUser = null;
+            updateUserHeaderUI(null);
+            document.getElementById('modal-logout-section').style.display = 'none';
+            alert("Has cerrado sesión. Puedes iniciar nuevamente con SMS/WhatsApp o tu contraseña.");
+        }
+
+        function updateUserHeaderUI(user) {
+            const displayName = document.getElementById('user-display-name');
+            const userBtn = document.getElementById('btn-user-profile');
+            const ptsBadge = document.getElementById('user-points-badge');
+            if (!displayName || !userBtn) return;
+
+            if (user) {
+                const label = user.full_name ? user.full_name.split(' ')[0] : (user.phone_number || 'Mi Cuenta');
+                displayName.innerHTML = `👤 ${label} ▾`;
+                userBtn.style.borderColor = 'var(--primary-emerald)';
+                userBtn.style.color = 'var(--primary-emerald)';
+                if (ptsBadge) {
+                    const pts = user.points_balance !== undefined ? user.points_balance : 0;
+                    const lvl = user.reputation_level || 'BRONCE';
+                    ptsBadge.innerText = `${pts} pts • ${lvl}`;
+                }
+                if (user.emergency_contact && user.emergency_contact.name) {
+                    const nameEl = document.getElementById('sos-contact-name');
+                    const phoneEl = document.getElementById('sos-contact-phone');
+                    if (nameEl) nameEl.value = user.emergency_contact.name;
+                    if (phoneEl && user.emergency_contact.phone) phoneEl.value = user.emergency_contact.phone;
+                }
+            } else {
+                displayName.innerHTML = `⚡ Ingresar (SMS/Pass)`;
+                userBtn.style.borderColor = 'var(--secondary-blue)';
+                userBtn.style.color = '#fff';
+                if (ptsBadge) ptsBadge.innerText = `0 pts • BRONCE`;
+            }
+        }
+
+        async function checkAuthSession() {
+            if (!clientToken) {
+                updateUserHeaderUI(null);
+                openLoginModal();
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${clientToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    clientUser = data.user;
+                    updateUserHeaderUI(clientUser);
+                    document.getElementById('client-login-modal').style.display = 'none';
+                } else {
+                    console.warn("Token de cliente expirado o inválido.");
+                    localStorage.removeItem('josepo_client_token');
+                    clientToken = null;
+                    clientUser = null;
+                    updateUserHeaderUI(null);
+                    openLoginModal();
+                }
+            } catch(e) {
+                console.error("Error validando sesión:", e);
+            }
+        }
+
+        async function requestOtpCode() {
+            const phone = document.getElementById('otp-phone').value.trim();
+            if (!phone) return alert("Ingresa tu número telefónico.");
+
+            try {
+                const res = await fetch('/api/auth/otp/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone_number: phone, purpose: 'SOS_LOGIN' })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo enviar el código');
+
+                alert(data.message + (data.demo_otp_code ? `\n[DEMO CODE]: ${data.demo_otp_code}` : ''));
+                if (data.demo_otp_code) {
+                    document.getElementById('otp-code').value = data.demo_otp_code;
+                }
+                document.getElementById('otp-input-section').style.display = 'block';
+                document.getElementById('btn-request-otp').innerText = 'Reenviar Código';
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        async function verifyOtpAndLogin() {
+            const phone = document.getElementById('otp-phone').value.trim();
+            const code = document.getElementById('otp-code').value.trim();
+            const fullName = document.getElementById('otp-name').value.trim();
+
+            if (!code || code.length !== 6) return alert("Ingresa el código de 6 dígitos.");
+
+            try {
+                const res = await fetch('/api/auth/otp/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone_number: phone, code: code, purpose: 'SOS_LOGIN', full_name: fullName })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Código incorrecto');
+
+                clientToken = data.access_token;
+                clientUser = data.user;
+                localStorage.setItem('josepo_client_token', clientToken);
+                updateUserHeaderUI(clientUser);
+                document.getElementById('client-login-modal').style.display = 'none';
+
+                alert(`¡Bienvenido ${clientUser.full_name || clientUser.phone_number}! Sesión iniciada con éxito.`);
+
+                initSocket();
+                loadBcvRate();
+                loadAvailableTrucks();
+                loadSupportedBanks();
+                useCurrentGpsLocation();
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        async function loginClientPassword() {
+            const email = document.getElementById('client-email').value;
+            const password = document.getElementById('client-password').value;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Credenciales inválidas');
+
+                clientToken = data.access_token;
+                clientUser = data.user;
+                localStorage.setItem('josepo_client_token', clientToken);
+                updateUserHeaderUI(clientUser);
+                document.getElementById('client-login-modal').style.display = 'none';
+
+                alert(`¡Bienvenido ${clientUser.full_name || clientUser.phone_number}! Sesión iniciada con éxito.`);
+
+                initSocket();
+                loadBcvRate();
+                loadAvailableTrucks();
+                loadSupportedBanks();
+                useCurrentGpsLocation();
+            } catch(err) {
+                alert(err.message);
+            }
+        }
+
+        async function loadSupportedBanks() {
+            try {
+                const res = await fetch('/api/payments/banks');
+                const data = await res.json();
+                if (res.ok && data.banks) {
+                    const select = document.getElementById('pm-bank');
+                    select.innerHTML = '<option value="">Selecciona tu banco</option>' +
+                        data.banks.map(b => `<option value="${b.code}">${b.code} - ${b.name}</option>`).join('');
+                }
+            } catch(e) {
+                console.error("Error cargando bancos:", e);
+            }
+        }
+
+        async function submitPagoMovilEscrow() {
+            if (!currentRequestId) return alert("Primero debes solicitar un auxilio vial.");
+            const bankCode = document.getElementById('pm-bank').value;
+            const payerPhone = document.getElementById('pm-phone').value.trim();
+            const payerId = document.getElementById('pm-id-card').value.trim();
+            const reference = document.getElementById('pm-reference').value.trim();
+
+            if (!bankCode || !payerPhone || !payerId || !reference) {
+                return alert("Completa todos los campos bancarios para congelar la garantía.");
+            }
+
+            try {
+                const res = await fetch('/api/payments/pago-movil/escrow', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    },
+                    body: JSON.stringify({
+                        request_id: currentRequestId,
+                        bank_code: bankCode,
+                        payer_phone: payerPhone,
+                        payer_id_card: payerId,
+                        reference_number: reference
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo registrar la garantía.');
+
+                document.getElementById('pago-movil-form').style.display = 'none';
+                document.getElementById('pago-movil-confirmed').style.display = 'block';
+                document.getElementById('pm-confirmed-ref').innerText = `Ref #${reference} (${data.payment.banking_info.bank_name})`;
+                document.getElementById('escrow-status-badge').className = 'escrow-badge';
+                document.getElementById('escrow-status-badge').innerText = '🔒 GARANTÍA CONGELADA';
+                alert("¡Garantía congelada con éxito! La grúa tiene cobro garantizado al completar el viaje.");
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        function initMap() {
+            map = L.map('client-map', { zoomControl: false }).setView(originCoords, 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+
+            const originIcon = L.divIcon({
+                html: `<div style="background:#EF4444; border:3px solid white; width:22px; height:22px; border-radius:50%; box-shadow:0 0 12px rgba(239, 68, 68, 0.7);"></div>`,
+                iconSize: [22, 22],
+                iconAnchor: [11, 11]
+            });
+            originMarker = L.marker(originCoords, { icon: originIcon, draggable: true }).addTo(map);
+
+            originMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                originCoords = [pos.lat, pos.lng];
+                updateEstimate();
+            });
+
+            map.on('click', function(e) {
+                setDestinationCoords(e.latlng.lat, e.latlng.lng);
+            });
+        }
+
+        async function loadBcvRate() {
+            try {
+                const res = await fetch('/api/currency/rate');
+                const data = await res.json();
+                if (res.ok && data.rate) {
+                    document.getElementById('bcv-badge').innerText = `BCV: ${data.rate.toFixed(2)} VES`;
+                }
+            } catch(e) {
+                console.error("Error tasa BCV:", e);
+            }
+        }
+
+        async function loadAvailableTrucks() {
+            try {
+                const res = await fetch('/api/tows/available-trucks');
+                const data = await res.json();
+                if (res.ok && data.trucks) {
+                    data.trucks.forEach(t => renderTruckOnMap(t));
+                }
+            } catch(e) {
+                console.error("Error cargando grúas:", e);
+            }
+        }
+
+        function renderTruckOnMap(truck) {
+            const truckIcon = L.divIcon({
+                html: `<div style="background:#10B981; border:2px solid white; border-radius:50%; width:18px; height:18px; box-shadow:0 0 8px rgba(16, 185, 129, 0.6);"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+
+            if (truckMarkers[truck.id]) {
+                truckMarkers[truck.id].setLatLng([truck.current_position.lat, truck.current_position.lng]);
+            } else {
+                const marker = L.marker([truck.current_position.lat, truck.current_position.lng], { icon: truckIcon }).addTo(map);
+                marker.bindPopup(`<b>Grúa ${truck.license_plate}</b><br>${truck.brand_model}`);
+                truckMarkers[truck.id] = marker;
+            }
+        }
+
+        function initSocket() {
+            socket = io({ auth: { token: clientToken } });
+
+            socket.on('connect', () => {
+                console.log("Conectado a WebSockets Josepo Cliente");
+            });
+
+            socket.on('tow_contacting_driver', (data) => {
+                document.getElementById('tracking-title').innerText = "Contactando grúa más cercana...";
+                document.getElementById('tracking-subtitle').innerText = data.message;
+            });
+
+            socket.on('tow_assigned', (req) => {
+                document.getElementById('tracking-spinner').style.borderTopColor = '#10B981';
+                document.getElementById('tracking-title').innerText = "¡Grúa Confirmada y en Camino!";
+                document.getElementById('tracking-subtitle').innerText = "El operador aceptó el auxilio vial.";
+                
+                document.getElementById('assigned-driver-card').style.display = 'block';
+                document.getElementById('assigned-plate').innerText = req.truck_plate || 'GRU-001';
+                document.getElementById('assigned-driver-name').innerText = req.driver_name || 'Operador Asignado';
+                document.getElementById('assigned-distance').innerText = `${req.metrics.distance_to_user_km} km`;
+            });
+
+            socket.on('truck_live_location', (data) => {
+                if (data.position) {
+                    if (!activeTruckMarker) {
+                        const icon = L.divIcon({
+                            html: `<div style="background:#3B82F6; border:3px solid white; border-radius:50%; width:24px; height:24px; box-shadow:0 0 15px rgba(59, 130, 246, 0.8);"></div>`,
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
+                        });
+                        activeTruckMarker = L.marker([data.position.lat, data.position.lng], { icon }).addTo(map);
+                    } else {
+                        activeTruckMarker.setLatLng([data.position.lat, data.position.lng]);
+                    }
+                    if (data.distance_remaining_km !== undefined) {
+                        document.getElementById('assigned-distance').innerText = `${data.distance_remaining_km} km restantes`;
+                    }
+                }
+            });
+
+            socket.on('payment_held', (data) => {
+                document.getElementById('escrow-status-badge').className = 'escrow-badge';
+                document.getElementById('escrow-status-badge').innerText = '🔒 GARANTÍA CONGELADA';
+            });
+
+            socket.on('payment_released', (data) => {
+                document.getElementById('escrow-status-badge').innerText = '✓ PAGADO Y LIBERADO';
+            });
+
+            socket.on('payment_refunded', (data) => {
+                document.getElementById('escrow-status-badge').className = 'escrow-badge unpaid';
+                document.getElementById('escrow-status-badge').innerText = 'REEMBOLSADO';
+                alert(data.notification_message || "Garantía reembolsada.");
+            });
+
+            socket.on('contract_inspection_registered', (data) => {
+                alert(`📋 ${data.message}\nVehículo: ${data.contract.vehicle.plate} (${data.contract.vehicle.model})\nInspección de daños previos: ${data.contract.vehicle.pre_existing_damages}`);
+            });
+
+            socket.on('tow_status_changed', (data) => {
+                const labels = {
+                    'IN_TRANSIT_TO_USER': 'Grúa en camino a tu ubicación...',
+                    'ARRIVED_AT_USER': '¡La grúa ha llegado al sitio del vehículo!',
+                    'IN_TRANSIT_TO_DEST': 'Remolcando vehículo hacia el taller/destino...',
+                    'COMPLETED': '¡Servicio Finalizado exitosamente! Gracias por usar Josepo.'
+                };
+                document.getElementById('tracking-title').innerText = labels[data.new_status] || data.new_status;
+                if (data.new_status === 'COMPLETED') {
+                    document.getElementById('rating-modal').style.display = 'flex';
+                }
+            });
+
+            socket.on('tow_failed_no_drivers', (data) => {
+                alert(data.message || "No se encontraron grúas disponibles en tu radio.");
+                resetUi();
+            });
+
+            socket.on('truck_position_broadcast', (data) => {
+                if (truckMarkers[data.truck_id]) {
+                    truckMarkers[data.truck_id].setLatLng([data.position.lat, data.position.lng]);
+                }
+            });
+
+            // Eventos Fase 5: Gamificación, Validación Cruzada y SOS Familiar
+            socket.on('points_updated', (data) => {
+                const ptsBadge = document.getElementById('user-points-badge');
+                if (ptsBadge) {
+                    ptsBadge.innerText = `${data.points_balance} pts • ${data.reputation_level}`;
+                }
+                const modalPts = document.getElementById('modal-points-balance');
+                if (modalPts) modalPts.innerText = `${data.points_balance} pts`;
+                const modalLvl = document.getElementById('modal-reputation-level');
+                if (modalLvl) modalLvl.innerText = `🏅 ${data.reputation_level}`;
+            });
+
+            socket.on('new_traffic_report', (report) => {
+                renderTrafficReportMarker(report);
+                loadTrafficReports();
+            });
+
+            socket.on('traffic_report_confirmed', (data) => {
+                if (data.report) {
+                    renderTrafficReportMarker(data.report);
+                    loadTrafficReports();
+                }
+            });
+
+            socket.on('family_sos_dispatched', (alertData) => {
+                console.log("Alerta SOS Familiar despachada:", alertData);
+            });
+        }
+
+        function useCurrentGpsLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        originCoords = [pos.coords.latitude, pos.coords.longitude];
+                        originMarker.setLatLng(originCoords);
+                        map.setView(originCoords, 14);
+                        document.getElementById('origin-display').innerText = `Mi ubicación (${originCoords[0].toFixed(4)}, ${originCoords[1].toFixed(4)})`;
+                        updateEstimate();
+                    },
+                    (err) => {
+                        document.getElementById('origin-display').innerText = `Ubicación marcada (${originCoords[0].toFixed(4)}, ${originCoords[1].toFixed(4)})`;
+                        updateEstimate();
+                    }
+                );
+            }
+        }
+
+        function setDestinationCoords(lat, lng) {
+            destCoords = [lat, lng];
+            const destIcon = L.divIcon({
+                html: `<div style="background:#3B82F6; border:2px solid white; border-radius:50%; width:18px; height:18px;"></div>`,
+                iconSize: [18, 18],
+                iconAnchor: [9, 9]
+            });
+
+            if (destMarker) {
+                destMarker.setLatLng(destCoords);
+            } else {
+                destMarker = L.marker(destCoords, { icon: destIcon }).addTo(map);
+            }
+            document.getElementById('dest-display').innerText = `Destino marcado (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+            updateEstimate();
+        }
+
+        async function updateEstimate() {
+            try {
+                const payload = {
+                    origin: { lat: originCoords[0], lng: originCoords[1] },
+                    destination: destCoords ? { lat: destCoords[0], lng: destCoords[1] } : null
+                };
+
+                const res = await fetch('/api/tows/estimate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.available) {
+                    document.getElementById('quote-dist').innerText = `${data.distance_to_user_km} km`;
+                    document.getElementById('quote-usd').innerText = `${data.pricing.cost_usd} USD`;
+                    document.getElementById('quote-ves').innerText = `${data.pricing.cost_ves} VES`;
+                }
+            } catch(e) {
+                console.error("Error estimación:", e);
+            }
+        }
+
+        async function confirmTowRequest() {
+            if (!clientToken) {
+                alert("Por favor identifícate con tu número de teléfono (SMS/WhatsApp) o correo para solicitar tu grúa.");
+                openLoginModal();
+                return;
+            }
+
+            try {
+                const payload = {
+                    origin: { lat: originCoords[0], lng: originCoords[1] },
+                    destination: destCoords ? { lat: destCoords[0], lng: destCoords[1] } : null
+                };
+
+                const res = await fetch('/api/tows/request', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+
+                if (res.status === 401) {
+                    localStorage.removeItem('josepo_client_token');
+                    clientToken = null;
+                    clientUser = null;
+                    updateUserHeaderUI(null);
+                    alert("Tu sesión ha caducado. Por favor ingresa nuevamente con tu número de teléfono (SMS/WhatsApp) o contraseña.");
+                    openLoginModal();
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error(data.error || data.msg || 'No fue posible solicitar grúa en este momento.');
+                }
+
+                currentRequestId = data.request.id;
+                document.getElementById('selection-panel').style.display = 'none';
+                document.getElementById('tracking-panel').style.display = 'block';
+                document.getElementById('tracking-panel').scrollIntoView({ behavior: 'smooth' });
+
+            } catch(err) {
+                alert(err.message);
+            }
+        }
+
+        async function cancelCurrentService() {
+            if (!currentRequestId) return;
+            try {
+                const res = await fetch(`/api/tows/${currentRequestId}/cancel`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${clientToken}` }
+                });
+                const data = await res.json();
+                alert(data.message || "Solicitud cancelada.");
+                resetUi();
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        function resetUi() {
+            currentRequestId = null;
+            document.getElementById('selection-panel').style.display = 'block';
+            document.getElementById('tracking-panel').style.display = 'none';
+            document.getElementById('assigned-driver-card').style.display = 'none';
+            document.getElementById('pago-movil-form').style.display = 'block';
+            document.getElementById('pago-movil-confirmed').style.display = 'none';
+            document.getElementById('escrow-status-badge').className = 'escrow-badge unpaid';
+            document.getElementById('escrow-status-badge').innerText = 'PENDIENTE';
+            if (activeTruckMarker) {
+                map.removeLayer(activeTruckMarker);
+                activeTruckMarker = null;
+            }
+        }
+
+        async function submitRatingAndShowReceipt() {
+            if (!currentRequestId) {
+                document.getElementById('rating-modal').style.display = 'none';
+                resetUi();
+                return;
+            }
+            const rating = document.getElementById('rating-stars').value;
+            const feedback = document.getElementById('rating-feedback').value.trim();
+
+            try {
+                const res = await fetch('/api/contracts/rate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    },
+                    body: JSON.stringify({
+                        request_id: currentRequestId,
+                        rating: parseInt(rating),
+                        feedback: feedback
+                    })
+                });
+                const data = await res.json();
+                document.getElementById('rating-modal').style.display = 'none';
+                alert(`¡Gracias por tu valoración (${rating} ⭐)!\nTu Acta Digital ha sido firmada. Token de verificación para tu aseguradora: ${data.contract.legal_receipt.token.substring(0, 16)}...`);
+                resetUi();
+                loadGamificationProfile();
+            } catch(e) {
+                console.error(e);
+                document.getElementById('rating-modal').style.display = 'none';
+                resetUi();
+            }
+        }
+
+        // =========================================================================
+        // FASE 5: GAMIFICACIÓN, VALIDACIÓN CRUZADA DE TRÁFICO, SOS FAMILIAR Y VOZ
+        // =========================================================================
+        let trafficMarkers = {};
+        let speechRecognitionInstance = null;
+
+        function speakFeedback(text) {
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'es-ES';
+                    utterance.rate = 1.05;
+                    window.speechSynthesis.speak(utterance);
+                }
+            } catch(e) {
+                console.log("Síntesis de voz no disponible:", e);
+            }
+        }
+
+        function openRewardsModal() {
+            document.getElementById('rewards-modal').style.display = 'flex';
+            loadGamificationProfile();
+            loadPartnerRewards();
+            loadLeaderboard();
+        }
+
+        function closeRewardsModal() {
+            document.getElementById('rewards-modal').style.display = 'none';
+        }
+
+        function setRewardsTab(tab) {
+            document.getElementById('tab-catalog').className = `tab-btn ${tab === 'catalog' ? 'active' : ''}`;
+            document.getElementById('tab-coupons').className = `tab-btn ${tab === 'coupons' ? 'active' : ''}`;
+            document.getElementById('tab-ranking').className = `tab-btn ${tab === 'ranking' ? 'active' : ''}`;
+            document.getElementById('rewards-catalog-section').style.display = tab === 'catalog' ? 'block' : 'none';
+            document.getElementById('rewards-coupons-section').style.display = tab === 'coupons' ? 'block' : 'none';
+            document.getElementById('rewards-ranking-section').style.display = tab === 'ranking' ? 'block' : 'none';
+        }
+
+        async function loadGamificationProfile() {
+            if (!clientToken) return;
+            try {
+                const res = await fetch('/api/gamification/profile', {
+                    headers: { 'Authorization': `Bearer ${clientToken}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+
+                document.getElementById('user-points-badge').innerText = `${data.points_balance} pts • ${data.reputation_level}`;
+                document.getElementById('modal-points-balance').innerText = `${data.points_balance} pts`;
+                document.getElementById('modal-reputation-level').innerText = `🏅 ${data.reputation_level}`;
+
+                if (data.next_level_info && data.next_level_info.points_needed > 0) {
+                    document.getElementById('modal-next-level-hint').innerText =
+                        `Puntos históricos: ${data.lifetime_points} pts • Te faltan ${data.next_level_info.points_needed} pts para alcanzar nivel ${data.next_level_info.next_level}.`;
+                } else {
+                    document.getElementById('modal-next-level-hint').innerText =
+                        `¡Has alcanzado el rango máximo (${data.reputation_level}) con ${data.lifetime_points} pts históricos!`;
+                }
+
+                // Renderizar cupones canjeados
+                const couponsContainer = document.getElementById('coupons-list-container');
+                if (data.redemptions && data.redemptions.length > 0) {
+                    couponsContainer.innerHTML = data.redemptions.map(c => `
+                        <div class="reward-item-card" style="border-color: var(--primary-emerald);">
+                            <div>
+                                <div style="font-size: 11px; color: var(--primary-emerald); font-weight: 800;">${c.partner_name}</div>
+                                <div style="font-size: 13px; font-weight: 700;">${c.reward_title}</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Gastado: ${c.points_spent} pts • Estado: ${c.status}</div>
+                            </div>
+                            <div style="background: rgba(16,185,129,0.15); border: 1px dashed var(--primary-emerald); padding: 6px 10px; border-radius: 8px; font-weight: 800; font-size: 12px; color: var(--primary-emerald); white-space: nowrap;">
+                                ${c.coupon_code}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    couponsContainer.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 14px;">Aún no tienes cupones activos. Canjea tus puntos en la pestaña de Talleres Aliados.</div>`;
+                }
+            } catch(e) {
+                console.error("Error cargando perfil de gamificación:", e);
+            }
+        }
+
+        async function loadPartnerRewards() {
+            try {
+                const res = await fetch('/api/gamification/rewards');
+                const data = await res.json();
+                const container = document.getElementById('rewards-list-container');
+                if (res.ok && data.rewards) {
+                    container.innerHTML = data.rewards.map(r => `
+                        <div class="reward-item-card">
+                            <div style="flex: 1;">
+                                <div style="font-size: 11px; color: var(--secondary-blue); font-weight: 800;">🔧 ${r.partner_name} (${r.city_location})</div>
+                                <div style="font-size: 13px; font-weight: 800; margin: 2px 0;">${r.title}</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">${r.description}</div>
+                            </div>
+                            <button onclick="redeemPartnerReward(${r.id})" style="background: var(--primary-emerald); color: white; border: none; padding: 8px 12px; border-radius: 10px; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
+                                Canjear<br>${r.points_cost} pts
+                            </button>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {
+                console.error("Error cargando recompensas:", e);
+            }
+        }
+
+        async function redeemPartnerReward(rewardId) {
+            if (!clientToken) {
+                alert("Inicia sesión primero para canjear tus puntos.");
+                openLoginModal();
+                return;
+            }
+            try {
+                const res = await fetch('/api/gamification/redeem', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    },
+                    body: JSON.stringify({ reward_id: rewardId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo procesar el canje.');
+
+                alert(`🎉 ${data.message}\nCódigo de Cupón: ${data.redemption.coupon_code}`);
+                await loadGamificationProfile();
+                setRewardsTab('coupons');
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        async function loadLeaderboard() {
+            try {
+                const res = await fetch('/api/gamification/leaderboard');
+                const data = await res.json();
+                const container = document.getElementById('ranking-list-container');
+                if (res.ok && data.leaderboard) {
+                    container.innerHTML = data.leaderboard.map(u => `
+                        <div class="reward-item-card" style="padding: 10px 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="font-size: 15px; font-weight: 800; color: var(--warning-amber); width: 24px;">#${u.rank}</div>
+                                <div>
+                                    <div style="font-size: 13px; font-weight: 700;">${u.full_name}</div>
+                                    <div style="font-size: 11px; color: var(--text-muted);">Nivel: ${u.reputation_level}</div>
+                                </div>
+                            </div>
+                            <div style="font-size: 14px; font-weight: 800; color: var(--primary-emerald);">${u.lifetime_points} pts</div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {
+                console.error("Error cargando ranking:", e);
+            }
+        }
+
+        // --- Radar Comunitario y Validación Cruzada de Tráfico ---
+        function openTrafficModal() {
+            document.getElementById('traffic-modal').style.display = 'flex';
+            loadTrafficReports();
+        }
+
+        function closeTrafficModal() {
+            document.getElementById('traffic-modal').style.display = 'none';
+        }
+
+        function renderTrafficReportMarker(report) {
+            if (!map || !report.position) return;
+            const badgeColor = report.is_verified ? '#10B981' : '#F59E0B';
+            const icon = L.divIcon({
+                html: `<div style="background:${badgeColor}; border:2px solid white; border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:11px; box-shadow:0 0 8px rgba(0,0,0,0.5);">⚠️</div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            const popupHtml = `
+                <div style="color:#0F172A; font-size:12px;">
+                    <b>${report.type} ${report.is_verified ? '✓ Verificado' : ''}</b><br>
+                    ${report.description}<br>
+                    <small>Reportado por: ${report.author_name} (${report.confirmations_count || 0} confirmaciones)</small>
+                </div>
+            `;
+
+            if (trafficMarkers[report.id]) {
+                trafficMarkers[report.id].setLatLng([report.position.lat, report.position.lng]);
+                trafficMarkers[report.id].setPopupContent(popupHtml);
+            } else {
+                const m = L.marker([report.position.lat, report.position.lng], { icon }).addTo(map);
+                m.bindPopup(popupHtml);
+                trafficMarkers[report.id] = m;
+            }
+        }
+
+        async function loadTrafficReports() {
+            try {
+                const res = await fetch('/api/traffic/reports');
+                const data = await res.json();
+                const container = document.getElementById('traffic-reports-list');
+                if (res.ok && data.reports) {
+                    data.reports.forEach(r => renderTrafficReportMarker(r));
+                    if (data.reports.length === 0) {
+                        container.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 12px;">No hay incidentes reportados en este momento. ¡Sé el primero y gana +25 pts!</div>`;
+                        return;
+                    }
+                    container.innerHTML = data.reports.map(r => `
+                        <div class="traffic-item-card" style="border-color: ${r.is_verified ? 'var(--primary-emerald)' : 'var(--border-color)'};">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-size: 12px; font-weight: 800; color: var(--warning-amber);">⚠️ ${r.type}</span>
+                                <span style="font-size: 11px; font-weight: 700; color: ${r.is_verified ? 'var(--primary-emerald)' : 'var(--text-muted)'};">
+                                    ${r.is_verified ? '✓ VERIFICADO COMUNITARIAMENTE' : `Confirmaciones: ${r.confirmations_count || 0}/2`}
+                                </span>
+                            </div>
+                            <div style="font-size: 13px; margin-bottom: 6px;">${r.description}</div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 11px; color: var(--text-muted);">Por: ${r.author_name} (${r.author_reputation || 'BRONCE'})</span>
+                                <button onclick="confirmTrafficReport(${r.id})" style="background: var(--secondary-blue); color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer;">
+                                    👍 Confirmar Sigue Ahí (+10 pts)
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {
+                console.error("Error cargando reportes viales:", e);
+            }
+        }
+
+        async function submitTrafficReport(customType, customDesc) {
+            if (!clientToken) {
+                alert("Inicia sesión para reportar un incidente y ganar +25 puntos.");
+                openLoginModal();
+                return;
+            }
+            const type = customType || document.getElementById('traffic-type').value;
+            const description = customDesc || document.getElementById('traffic-desc').value.trim();
+
+            if (!description || description.length < 3) {
+                return alert("Escribe una breve descripción del incidente vial.");
+            }
+
+            try {
+                const res = await fetch('/api/traffic/reports', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    },
+                    body: JSON.stringify({
+                        lat: originCoords[0],
+                        lng: originCoords[1],
+                        type: type,
+                        description: description
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error enviando reporte.');
+
+                alert(`🎉 ${data.message}`);
+                await loadTrafficReports();
+                await loadGamificationProfile();
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        async function confirmTrafficReport(reportId) {
+            if (!clientToken) {
+                alert("Inicia sesión para confirmar reportes de otros conductores y ganar +10 puntos.");
+                openLoginModal();
+                return;
+            }
+            try {
+                const res = await fetch(`/api/traffic/reports/${reportId}/confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    }
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo confirmar el reporte.');
+
+                alert(`🏆 ${data.message}`);
+                await loadTrafficReports();
+                await loadGamificationProfile();
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        // --- Botón SOS Familiar y Enlace de Rastreo en Vivo ---
+        function openFamilySosModal() {
+            document.getElementById('family-sos-modal').style.display = 'flex';
+        }
+
+        function closeFamilySosModal() {
+            document.getElementById('family-sos-modal').style.display = 'none';
+        }
+
+        async function triggerFamilySos(triggeredVia = 'BUTTON') {
+            if (!clientToken) {
+                alert("Por favor inicia sesión para enviar la alerta SOS Familiar con tu ubicación.");
+                openLoginModal();
+                return;
+            }
+            const contactName = document.getElementById('sos-contact-name').value.trim();
+            const contactPhone = document.getElementById('sos-contact-phone').value.trim();
+            const customMsg = document.getElementById('sos-custom-msg').value.trim();
+
+            try {
+                const res = await fetch('/api/gamification/sos/family-alert', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${clientToken}`
+                    },
+                    body: JSON.stringify({
+                        lat: originCoords[0],
+                        lng: originCoords[1],
+                        contact_name: contactName,
+                        contact_phone: contactPhone,
+                        custom_message: customMsg,
+                        request_id: currentRequestId,
+                        triggered_via: triggeredVia
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo enviar la alerta SOS.');
+
+                const resultBox = document.getElementById('sos-result-box');
+                const resultText = document.getElementById('sos-result-text');
+                const trackingLink = document.getElementById('sos-tracking-link');
+
+                resultBox.style.display = 'block';
+                resultText.innerText = data.alert.sms_preview;
+                trackingLink.href = data.alert.tracking_url;
+
+                speakFeedback(`Alerta SOS enviada a ${data.alert.contact_name}. Tu enlace de rastreo en vivo está activo.`);
+                if (triggeredVia === 'VOICE_COMMAND') {
+                    openFamilySosModal();
+                } else {
+                    alert(data.message);
+                }
+            } catch(e) {
+                alert(e.message);
+            }
+        }
+
+        // --- Comandos de Voz Manos Libres (Web Speech API) ---
+        function openVoiceModal() {
+            document.getElementById('voice-assistant-modal').style.display = 'flex';
+        }
+
+        function closeVoiceModal() {
+            document.getElementById('voice-assistant-modal').style.display = 'none';
+            document.getElementById('fab-voice-btn').classList.remove('voice-active');
+            if (speechRecognitionInstance) {
+                try { speechRecognitionInstance.stop(); } catch(e) {}
+            }
+        }
+
+        function startSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const statusTitle = document.getElementById('voice-status-title');
+            const previewEl = document.getElementById('voice-transcript-preview');
+            const fabBtn = document.getElementById('fab-voice-btn');
+
+            if (!SpeechRecognition) {
+                statusTitle.innerText = "Reconocimiento nativo no disponible en este navegador";
+                previewEl.innerText = "Usa los botones del Simulador de Comandos de Voz abajo para probar al instante.";
+                speakFeedback("Usa el simulador de comandos de voz en pantalla.");
+                return;
+            }
+
+            speechRecognitionInstance = new SpeechRecognition();
+            speechRecognitionInstance.lang = 'es-VE';
+            speechRecognitionInstance.interimResults = false;
+            speechRecognitionInstance.maxAlternatives = 1;
+
+            fabBtn.classList.add('voice-active');
+            statusTitle.innerText = "🔴 Escuchando tu comando de voz...";
+            previewEl.innerText = "Habla ahora cerca del micrófono...";
+
+            speechRecognitionInstance.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                previewEl.innerText = `Escuchado: "${transcript}"`;
+                fabBtn.classList.remove('voice-active');
+                processVoiceCommand(transcript);
+            };
+
+            speechRecognitionInstance.onerror = (event) => {
+                fabBtn.classList.remove('voice-active');
+                statusTitle.innerText = "No se detectó audio en el micrófono";
+                previewEl.innerText = "Puedes pulsar cualquiera de los comandos rápidos abajo.";
+            };
+
+            speechRecognitionInstance.onend = () => {
+                fabBtn.classList.remove('voice-active');
+            };
+
+            speechRecognitionInstance.start();
+        }
+
+        async function processVoiceCommand(rawText) {
+            const cmd = (rawText || '').toLowerCase().trim();
+            document.getElementById('voice-status-title').innerText = "✓ Comando Procesado";
+            document.getElementById('voice-transcript-preview').innerText = `"${rawText}"`;
+
+            if (cmd.includes('familiar') || cmd.includes('familia') || cmd.includes('alerta sos')) {
+                speakFeedback("Activando alerta S O S familiar con tu ubicación satelital en vivo.");
+                closeVoiceModal();
+                await triggerFamilySos('VOICE_COMMAND');
+            } else if (cmd.includes('grúa') || cmd.includes('grua') || cmd.includes('auxilio') || cmd.includes('remolque')) {
+                speakFeedback("Solicitando la unidad de grúa más cercana a tu ubicación.");
+                closeVoiceModal();
+                await confirmTowRequest();
+            } else if (cmd.includes('accidente') || cmd.includes('reportar') || cmd.includes('tráfico') || cmd.includes('trafico')) {
+                speakFeedback("Reportando incidente vial en tus coordenadas actuales. Ganarás 25 puntos.");
+                closeVoiceModal();
+                await submitTrafficReport('ACCIDENT', 'Incidente vial reportado mediante comando de voz manos libres.');
+            } else if (cmd.includes('punto') || cmd.includes('recompensa') || cmd.includes('taller')) {
+                speakFeedback("Abriendo tu Club Guardián Vial y catálogo de talleres aliados.");
+                closeVoiceModal();
+                openRewardsModal();
+            } else {
+                speakFeedback("Comando recibido. Di solicitar grúa, alerta familiar o reportar accidente.");
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadSupportedBanks();
+            initSocket();
+            loadBcvRate();
+            loadAvailableTrucks();
+            loadTrafficReports();
+            useCurrentGpsLocation();
+            checkAuthSession().then(() => {
+                loadGamificationProfile();
+            });
+        });
+    </script>
+</body>
+</html>

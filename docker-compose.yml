@@ -1,0 +1,84 @@
+services:
+  # 1. Servicio Principal Backend (Flask + SocketIO + PostgreSQL/PostGIS + Flask-Limiter)
+  josepo_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: josepo_api
+    restart: unless-stopped
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?Error: Debes definir SECRET_KEY en tu archivo .env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Error: Debes definir JWT_SECRET_KEY en tu archivo .env}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET:-change-webhook-secret-in-prod}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-josepo_user}:${POSTGRES_PASSWORD:-josepo_secure_password_2026}@postgres:5432/${POSTGRES_DB:-josepo_db}
+      REDIS_URL: redis://redis:6379/0
+      RATELIMIT_STORAGE_URI: redis://redis:6379/1
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5000,https://josepo.ve,https://app.josepo.ve,https://admin.josepo.ve}
+      CURRENCY_CRON_ENABLED: "true"
+      CURRENCY_CRON_INTERVAL_MINUTES: ${CURRENCY_CRON_INTERVAL_MINUTES:-30}
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # 2. Worker Cronjob de Automatización Cambiaria BCV (Fase 7)
+  josepo_cron_fx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: josepo_cron_fx
+    restart: unless-stopped
+    command: ["python", "scripts/cron_update_bcv.py", "--daemon", "--interval", "1800"]
+    environment:
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-cron-worker-secret-key-minimum-32-chars-prod-2026}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-cron-worker-jwt-secret-minimum-32-chars-prod-2026}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-josepo_user}:${POSTGRES_PASSWORD:-josepo_secure_password_2026}@postgres:5432/${POSTGRES_DB:-josepo_db}
+      BCV_API_URL: ${BCV_API_URL:-https://ve.dolarapi.com/v1/dolares/oficial}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 3. Base de Datos Relacional de Alta Concurrencia con Soporte Geoespacial (PostgreSQL 16 + PostGIS 3.4)
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: josepo_postgres
+    restart: always
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=256MB"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-josepo_db}
+      POSTGRES_USER: ${POSTGRES_USER:-josepo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-josepo_secure_password_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_postgis.sql:/docker-entrypoint-initdb.d/01_init_postgis.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-josepo_user} -d ${POSTGRES_DB:-josepo_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 4. Broker de Mensajes, Rate Limiting (Flask-Limiter) y Caché en Tiempo Real
+  redis:
+    image: redis:7-alpine
+    container_name: josepo_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

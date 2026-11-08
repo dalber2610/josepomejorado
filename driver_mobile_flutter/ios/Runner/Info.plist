@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Josepo Driver</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>josepo_driver</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+
+	<!-- Permisos de Ubicación en Primer y Segundo Plano para iOS (Fase 6) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Josepo Driver necesita tu ubicación GPS para asignarte los auxilios viales más cercanos y mostrar tu ruta al cliente.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Josepo Driver requiere acceso continuo al GPS en segundo plano para seguir transmitiendo tu ubicación al cliente mientras navegas en Waze o Google Maps o con la pantalla bloqueada.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Permite transmitir la telemetría de la grúa en segundo plano durante servicios de emergencia activos.</string>
+
+	<!-- Modos de Ejecución en Segundo Plano en iOS -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+</dict>
+</plist>
+

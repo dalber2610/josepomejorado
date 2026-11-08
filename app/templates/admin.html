@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Josepo - Centro de Control y Operaciones (Admin & SLA)</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #0B1120;
+            --bg-card: #1E293B;
+            --bg-card-hover: #334155;
+            --border-color: #334155;
+            --primary-emerald: #10B981;
+            --secondary-blue: #3B82F6;
+            --warning-amber: #F59E0B;
+            --danger-red: #EF4444;
+            --purple-accent: #8B5CF6;
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            padding: 14px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title h1 {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .header-badge {
+            background: linear-gradient(135deg, var(--secondary-blue), #1D4ED8);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-size: 13px;
+        }
+
+        .live-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary-emerald);
+            border: 1px solid var(--primary-emerald);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary-emerald);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--primary-emerald);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        /* Bento Grid Layout */
+        .dashboard-container {
+            flex: 1;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* KPIs Superiores */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--primary-emerald);
+        }
+
+        .kpi-card.blue::before { background: var(--secondary-blue); }
+        .kpi-card.purple::before { background: var(--purple-accent); }
+        .kpi-card.amber::before { background: var(--warning-amber); }
+
+        .kpi-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .kpi-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Sección Media: Mapa + Estado de Flota */
+        .mid-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            min-height: 480px;
+        }
+
+        .map-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        #admin-map {
+            flex: 1;
+            width: 100%;
+            min-height: 420px;
+            z-index: 10;
+        }
+
+        .fleet-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .fleet-list {
+            flex: 1;
+            overflow-y: auto;
+            max-height: 420px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fleet-item {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .fleet-plate {
+            font-weight: 800;
+            color: var(--primary-emerald);
+        }
+
+        .badge-status {
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .badge-available { background: rgba(16, 185, 129, 0.2); color: var(--primary-emerald); }
+        .badge-busy { background: rgba(239, 68, 68, 0.2); color: var(--danger-red); }
+        .badge-off { background: #334155; color: var(--text-muted); }
+
+        /* Tabla de Operaciones Recientes y Auditoría */
+        .table-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .ops-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        .ops-table th {
+            background: #0F172A;
+            padding: 14px 18px;
+            color: var(--text-muted);
+            font-weight: 700;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ops-table td {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ops-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .btn-view-contract {
+            background: #334155;
+            color: white;
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-view-contract:hover {
+            background: var(--secondary-blue);
+        }
+
+        @media (max-width: 900px) {
+            .mid-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Encabezado -->
+    <header>
+        <div class="header-title">
+            <span class="header-badge">OPERATIONS HUB</span>
+            <h1>JOSEPO - Centro de Control de Flotas y SLA</h1>
+        </div>
+        <div class="header-meta">
+            <div class="live-pill">
+                <div class="live-dot"></div>
+                SISTEMA OPERATIVO
+            </div>
+            <div id="bcv-rate-display" style="font-weight: 700; color: var(--primary-emerald);">
+                BCV: -- VES
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Fila de KPIs -->
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-label">Cumplimiento de SLA</div>
+                <div class="kpi-value" id="kpi-sla-pct">-- %</div>
+                <div class="kpi-sub">🎯 Meta: Llegada en &le; 30 min</div>
+            </div>
+
+            <div class="kpi-card blue">
+                <div class="kpi-label">Tiempo Medio de Respuesta</div>
+                <div class="kpi-value" id="kpi-sla-avg">-- min</div>
+                <div class="kpi-sub">⏱️ Desde la llamada al sitio</div>
+            </div>
+
+            <div class="kpi-card purple">
+                <div class="kpi-label">Volumen Bruto Gestionado</div>
+                <div class="kpi-value" id="kpi-gross-vol">$ --</div>
+                <div class="kpi-sub" id="kpi-gross-ves">Bs. --</div>
+            </div>
+
+            <div class="kpi-card amber">
+                <div class="kpi-label">Garantías en Escrow</div>
+                <div class="kpi-value" id="kpi-escrow-held">$ --</div>
+                <div class="kpi-sub">🔒 Retenidas de forma segura</div>
+            </div>
+        </div>
+
+        <!-- Sección Media: Mapa + Flota -->
+        <div class="mid-section">
+            <div class="map-card">
+                <div class="card-header">
+                    <span>📡 Radar Nacional de Unidades y Tráfico</span>
+                    <span style="font-size: 12px; color: var(--text-muted);">Actualización en tiempo real</span>
+                </div>
+                <div id="admin-map"></div>
+            </div>
+
+            <div class="fleet-card">
+                <div class="card-header">
+                    <span>🚜 Estado de la Flota</span>
+                    <span id="fleet-count-badge" style="font-size: 12px; color: var(--primary-emerald);">0 unidades</span>
+                </div>
+                <div class="fleet-list" id="fleet-container">
+                    <div style="text-align: center; color: var(--text-muted); padding: 20px;">Cargando unidades...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Operaciones Recientes -->
+        <div class="table-card">
+            <div class="card-header">
+                <span>📑 Bitácora de Despacho y Auditoría de Contratos</span>
+                <button onclick="loadAdminData()" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;">Refrescar</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>ID Servicio</th>
+                            <th>Cliente</th>
+                            <th>Grúa / Chofer</th>
+                            <th>Monto (USD / VES)</th>
+                            <th>Estado Despacho</th>
+                            <th>Garantía Escrow</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ops-table-body">
+                        <tr>
+                            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 20px;">Cargando operaciones recientes...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet & Socket.IO -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script>
+        let map;
+        let truckMarkers = {};
+        let socket;
+
+        function initMap() {
+            // Centrado en Venezuela (Caracas - Valencia - Maracay)
+            map = L.map('admin-map', { zoomControl: true }).setView([10.3500, -66.9000], 8);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        async function loadAdminData() {
+            try {
+                // 1. Cargar KPIs
+                const resKpi = await fetch('/api/admin/kpis');
+                const kpiJson = await resKpi.json();
+                if (kpiJson.status === 'success') {
+                    const data = kpiJson.data;
+                    document.getElementById('kpi-sla-pct').innerText = `${data.sla.compliance_percentage}%`;
+                    document.getElementById('kpi-sla-avg').innerText = `${data.sla.average_arrival_minutes} min`;
+                    document.getElementById('kpi-gross-vol').innerText = `$${data.financials.gross_volume_usd.toFixed(2)}`;
+                    document.getElementById('kpi-gross-ves').innerText = `Bs. ${data.financials.gross_volume_ves.toLocaleString()}`;
+                    document.getElementById('kpi-escrow-held').innerText = `$${data.financials.escrow_held_usd.toFixed(2)}`;
+                    document.getElementById('bcv-rate-display').innerText = `BCV: ${data.financials.bcv_rate.toFixed(2)} VES`;
+                }
+
+                // 2. Cargar Flota
+                const resFleet = await fetch('/api/admin/fleet');
+                const fleetJson = await resFleet.json();
+                if (fleetJson.fleet) {
+                    renderFleet(fleetJson.fleet);
+                }
+
+                // 3. Cargar Operaciones
+                const resOps = await fetch('/api/admin/operations?limit=15');
+                const opsJson = await resOps.json();
+                if (opsJson.operations) {
+                    renderOperations(opsJson.operations);
+                }
+
+            } catch (err) {
+                console.error("Error cargando analíticas de administración:", err);
+            }
+        }
+
+        function renderFleet(trucks) {
+            const container = document.getElementById('fleet-container');
+            document.getElementById('fleet-count-badge').innerText = `${trucks.length} unidades`;
+            container.innerHTML = '';
+
+            trucks.forEach(t => {
+                let statusLabel = 'DISPONIBLE';
+                let badgeClass = 'badge-available';
+
+                if (!t.is_active) {
+                    statusLabel = 'FUERA DE TURNO';
+                    badgeClass = 'badge-off';
+                } else if (!t.is_available) {
+                    statusLabel = 'EN SERVICIO';
+                    badgeClass = 'badge-busy';
+                }
+
+                const item = document.createElement('div');
+                item.className = 'fleet-item';
+                item.innerHTML = `
+                    <div>
+                        <div class="fleet-plate">${t.license_plate}</div>
+                        <div style="font-size: 11px; color: var(--text-muted);">${t.brand_model} • ${t.driver_name || 'Sin chofer'}</div>
+                    </div>
+                    <span class="badge-status ${badgeClass}">${statusLabel}</span>
+                `;
+                container.appendChild(item);
+
+                // Renderizar en el mapa
+                renderTruckMarker(t);
+            });
+        }
+
+        function renderTruckMarker(truck) {
+            const color = !truck.is_active ? '#64748B' : (truck.is_available ? '#10B981' : '#EF4444');
+            const icon = L.divIcon({
+                html: `<div style="background:${color}; border:2px solid white; border-radius:50%; width:20px; height:20px; box-shadow:0 0 10px rgba(0,0,0,0.5);"></div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+
+            if (truckMarkers[truck.id]) {
+                truckMarkers[truck.id].setLatLng([truck.current_position.lat, truck.current_position.lng]);
+            } else {
+                const marker = L.marker([truck.current_position.lat, truck.current_position.lng], { icon: icon }).addTo(map);
+                marker.bindPopup(`<b>Grúa ${truck.license_plate}</b><br>${truck.brand_model}<br>Chofer: ${truck.driver_name || 'N/A'}`);
+                truckMarkers[truck.id] = marker;
+            }
+        }
+
+        function renderOperations(ops) {
+            const tbody = document.getElementById('ops-table-body');
+            tbody.innerHTML = '';
+
+            if (ops.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">No hay servicios registrados aún.</td></tr>';
+                return;
+            }
+
+            ops.forEach(op => {
+                const tr = document.createElement('tr');
+                const escrowBadge = op.has_escrow
+                    ? '<span style="color:var(--primary-emerald); font-weight:700;">🔒 CONGELADO</span>'
+                    : (op.payment_status === 'PAID' ? '<span style="color:var(--secondary-blue); font-weight:700;">✓ LIBERADO</span>' : '<span style="color:var(--text-muted);">PENDIENTE</span>');
+
+                tr.innerHTML = `
+                    <td style="font-family:monospace; font-weight:700;">#${op.id.substring(0, 8)}</td>
+                    <td>${op.client_name || 'Cliente'}</td>
+                    <td><b>${op.truck_plate || 'Sin asignar'}</b> (${op.driver_name || 'En espera'})</td>
+                    <td><b>$${op.pricing.cost_usd}</b> <span style="font-size:11px; color:var(--text-muted);">(Bs. ${op.pricing.cost_ves})</span></td>
+                    <td><span style="font-weight:700;">${op.status}</span></td>
+                    <td>${escrowBadge}</td>
+                    <td>
+                        <button class="btn-view-contract" onclick="inspectContract('${op.id}')">Ver Acta</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function inspectContract(requestId) {
+            try {
+                const token = localStorage.getItem('josepo_driver_token') || localStorage.getItem('josepo_client_token');
+                const res = await fetch(`/api/contracts/${requestId}`, {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                });
+                const data = await res.json();
+                if (data.contract) {
+                    const c = data.contract;
+                    alert(`ACTA DE REMOLQUE Y SLA\n` +
+                          `Auto: ${c.vehicle.plate} (${c.vehicle.model})\n` +
+                          `Daños previos: ${c.vehicle.pre_existing_damages}\n` +
+                          `Tiempo de llegada: ${c.sla.actual_minutes} min (Meta: 30 min)\n` +
+                          `Cumplimiento SLA: ${c.sla.sla_met ? 'CUMPLIDO ✓' : 'EXCEDIDO'}\n` +
+                          `Calificación: ${c.ratings.client_rating ? c.ratings.client_rating + ' ★' : 'Pendiente'}`);
+                } else {
+                    alert("Aún no se ha completado la inspección digital para este servicio.");
+                }
+            } catch(e) {
+                alert("Error consultando acta.");
+            }
+        }
+
+        function initSocket() {
+            socket = io();
+            socket.on('truck_status_update', (data) => {
+                loadAdminData();
+            });
+            socket.on('truck_position_broadcast', (data) => {
+                if (truckMarkers[data.truck_id]) {
+                    truckMarkers[data.truck_id].setLatLng([data.position.lat, data.position.lng]);
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadAdminData();
+            initSocket();
+            // Refresco periódico cada 30 segundos
+            setInterval(loadAdminData, 30000);
+        });
+    </script>
+</body>
+</html>
+

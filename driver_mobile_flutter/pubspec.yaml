@@ -1,0 +1,39 @@
+name: josepo_driver
+description: "Aplicación móvil nativa para operadores de grúas y auxilio vial de Josepo (Fase 6)"
+publish_to: 'none'
+version: 2.0.0+6
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Comunicación en Tiempo Real y API REST
+  socket_io_client: ^2.0.3+1
+  http: ^1.2.1
+
+  # Geolocalización y Ejecución en Segundo Plano (Pantalla apagada / Waze / Google Maps)
+  geolocator: ^11.0.0
+  flutter_background_service: ^5.0.5
+  flutter_background_service_android: ^6.2.2
+  flutter_local_notifications: ^17.1.2
+
+  # Mapas Interactivos y Lanzador de Navegación Externa (Waze / Google Maps)
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  url_launcher: ^6.2.6
+
+  # Almacenamiento Seguro y Estado
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.3
+  provider: ^6.1.2
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
