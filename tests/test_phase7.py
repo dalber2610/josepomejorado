@@ -158,6 +158,41 @@ class TestPhase7ProductionHardening(unittest.TestCase):
         self.assertGreaterEqual(status_json['cron']['executions_count'], 2)
         self.assertGreaterEqual(len(status_json['recent_logs']), 2)
 
+    def test_05_admin_endpoints_rbac_protection(self):
+        """Verifica que /api/admin/* exija JWT con rol ADMIN (Prevención de Broken Access Control - Detalle #1)."""
+        # 1. Sin token -> 401 Unauthorized
+        res_unauth = self.client.get('/api/admin/kpis')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # 2. Con token de CLIENT -> 403 Forbidden
+        res_client_login = self.client.post('/api/auth/login', json={
+            'email': 'hardened@josepo.com',
+            'password': 'SecurePass2026!'
+        })
+        client_token = res_client_login.get_json()['access_token']
+        res_forbidden = self.client.get('/api/admin/kpis', headers={'Authorization': f'Bearer {client_token}'})
+        self.assertEqual(res_forbidden.status_code, 403)
+
+        # 3. Con token de ADMIN -> 200 OK
+        admin_user = User(
+            email='admin_test@josepo.com',
+            phone_number='+584120009999',
+            full_name='Admin Test',
+            role=UserRole.ADMIN
+        )
+        admin_user.set_password('AdminPass2026!')
+        db.session.add(admin_user)
+        db.session.commit()
+
+        res_admin_login = self.client.post('/api/auth/login', json={
+            'email': 'admin_test@josepo.com',
+            'password': 'AdminPass2026!'
+        })
+        admin_token = res_admin_login.get_json()['access_token']
+        res_admin_ok = self.client.get('/api/admin/kpis', headers={'Authorization': f'Bearer {admin_token}'})
+        self.assertEqual(res_admin_ok.status_code, 200)
+        self.assertEqual(res_admin_ok.get_json()['status'], 'success')
+
 
 if __name__ == '__main__':
     unittest.main()

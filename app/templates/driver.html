@@ -504,8 +504,8 @@
 
             <!-- Modos de GPS y Simulación de Pedido -->
             <div class="gps-controls">
-                <button class="gps-btn active" id="btn-gps-real" onclick="setGpsMode('real')">📡 GPS Real</button>
-                <button class="gps-btn" id="btn-gps-sim" onclick="setGpsMode('sim')">🎮 Mover en Mapa</button>
+                <button class="gps-btn" id="btn-gps-real" onclick="setGpsMode('real')">📡 GPS Real</button>
+                <button class="gps-btn active" id="btn-gps-sim" onclick="setGpsMode('sim')">🎮 Mover en Mapa</button>
                 <button class="gps-btn btn-sim-panic" id="btn-simulate-order" onclick="simulateTowOrder()" title="Genera un auxilio vial simulado para probar la alerta SLA y la atención">
                     🚨 Simular Pedido SOS
                 </button>
@@ -636,7 +636,7 @@
         let offerTimerInterval = null;
         let gpsWatchId = null;
         let currentPos = [10.5000, -66.9167];
-        let gpsMode = 'real'; // 'real' | 'sim'
+        let gpsMode = 'sim'; // Por defecto en modo mapa/simulación para no desfasar coordenadas demo (Auditoría #2)
 
         // Sintetizador de audio para alerta sonora (Web Audio API nativa sin archivos)
         function playAlertSound() {
@@ -1095,6 +1095,13 @@
         }
 
         function startGpsTracking() {
+            if (gpsMode === 'sim') {
+                if (map) {
+                    map.off('click', onMapSimulateMove);
+                    map.on('click', onMapSimulateMove);
+                }
+                return;
+            }
             if (gpsMode === 'real' && navigator.geolocation) {
                 gpsWatchId = navigator.geolocation.watchPosition(
                     (pos) => {

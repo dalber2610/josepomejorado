@@ -293,6 +293,80 @@
             background: var(--secondary-blue);
         }
 
+        /* Modal Login Administrador (Auditoría #1 - Protección RBAC) */
+        #admin-login-modal {
+            display: flex;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 17, 32, 0.96);
+            backdrop-filter: blur(8px);
+            z-index: 3000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .admin-login-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 26px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .admin-input-group {
+            margin-bottom: 14px;
+        }
+
+        .admin-input-group label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 700;
+        }
+
+        .admin-input-group input {
+            width: 100%;
+            padding: 12px;
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .btn-admin-login {
+            width: 100%;
+            background: linear-gradient(135deg, var(--secondary-blue), #1D4ED8);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 15px;
+            cursor: pointer;
+            margin-top: 6px;
+        }
+
+        .btn-admin-logout {
+            background: #0F172A;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-admin-logout:hover {
+            border-color: var(--danger-red);
+            color: var(--danger-red);
+        }
+
         @media (max-width: 900px) {
             .mid-section {
                 grid-template-columns: 1fr;
@@ -301,6 +375,31 @@
     </style>
 </head>
 <body>
+
+    <!-- Modal de Autenticación de Administrador (Auditoría #1) -->
+    <div id="admin-login-modal">
+        <div class="admin-login-card">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <span class="header-badge">ADMIN RBAC</span>
+                <h2 style="font-size: 19px; font-weight: 800;">Centro de Control</h2>
+            </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 18px;">
+                Acceso protegido con JWT y validación de rol <b>ADMIN</b> para visualizar telemetría de flota y KPIs financieros.
+            </p>
+            <div class="admin-input-group">
+                <label>Correo Corporativo:</label>
+                <input type="email" id="admin-email" value="admin@josepo.com">
+            </div>
+            <div class="admin-input-group">
+                <label>Contraseña de Administrador:</label>
+                <input type="password" id="admin-password" value="AdminPass2026!">
+                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                    💡 Credenciales semilla precargadas: <b>admin@josepo.com</b> / <b>AdminPass2026!</b>
+                </div>
+            </div>
+            <button class="btn-admin-login" onclick="loginAdmin()">🔐 Iniciar Sesión en Operaciones</button>
+        </div>
+    </div>
 
     <!-- Encabezado -->
     <header>
@@ -316,6 +415,8 @@
             <div id="bcv-rate-display" style="font-weight: 700; color: var(--primary-emerald);">
                 BCV: -- VES
             </div>
+            <span id="admin-user-label" style="font-size: 12px; color: var(--text-muted); font-weight: 700;">👤 Admin</span>
+            <button class="btn-admin-logout" onclick="logoutAdmin()" title="Cerrar Sesión de Administrador">🚪 Salir</button>
         </div>
     </header>
 
@@ -405,6 +506,81 @@
         let map;
         let truckMarkers = {};
         let socket;
+        let adminToken = localStorage.getItem('josepo_admin_token') || null;
+        let adminUser = null;
+
+        function showAdminLoginModal() {
+            document.getElementById('admin-login-modal').style.display = 'flex';
+        }
+
+        function hideAdminLoginModal() {
+            document.getElementById('admin-login-modal').style.display = 'none';
+            if (map) setTimeout(() => map.invalidateSize(), 150);
+        }
+
+        async function loginAdmin() {
+            const email = document.getElementById('admin-email').value.trim();
+            const password = document.getElementById('admin-password').value;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Credenciales inválidas.');
+
+                if (data.user.role !== 'ADMIN') {
+                    throw new Error('Acceso denegado: Se requiere una cuenta con rol ADMIN.');
+                }
+
+                adminToken = data.access_token;
+                adminUser = data.user;
+                localStorage.setItem('josepo_admin_token', adminToken);
+                document.getElementById('admin-user-label').innerText = `👤 ${adminUser.full_name || 'Admin'}`;
+                hideAdminLoginModal();
+                await loadAdminData();
+                initSocket();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('josepo_admin_token');
+            adminToken = null;
+            adminUser = null;
+            document.getElementById('admin-user-label').innerText = '👤 Sin sesión';
+            showAdminLoginModal();
+        }
+
+        async function checkAdminSession() {
+            if (!adminToken) {
+                showAdminLoginModal();
+                return;
+            }
+            try {
+                const res = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.user && data.user.role === 'ADMIN') {
+                        adminUser = data.user;
+                        document.getElementById('admin-user-label').innerText = `👤 ${adminUser.full_name || 'Admin'}`;
+                        hideAdminLoginModal();
+                        await loadAdminData();
+                        initSocket();
+                        return;
+                    }
+                }
+                logoutAdmin();
+            } catch (e) {
+                console.error("Error verificando sesión de administrador:", e);
+                showAdminLoginModal();
+            }
+        }
 
         function initMap() {
             // Centrado en Venezuela (Caracas - Valencia - Maracay)
@@ -442,9 +618,20 @@
         }
 
         async function loadAdminData() {
+            if (!adminToken) {
+                showAdminLoginModal();
+                return;
+            }
+
+            const authHeaders = { 'Authorization': `Bearer ${adminToken}` };
+
             try {
-                // 1. Cargar KPIs
-                const resKpi = await fetch('/api/admin/kpis');
+                // 1. Cargar KPIs con cabecera Authorization JWT
+                const resKpi = await fetch('/api/admin/kpis', { headers: authHeaders });
+                if (resKpi.status === 401 || resKpi.status === 403) {
+                    logoutAdmin();
+                    return;
+                }
                 const kpiJson = await resKpi.json();
                 if (kpiJson.status === 'success') {
                     const data = kpiJson.data;
@@ -456,15 +643,15 @@
                     document.getElementById('bcv-rate-display').innerText = `BCV: ${data.financials.bcv_rate.toFixed(2)} VES`;
                 }
 
-                // 2. Cargar Flota
-                const resFleet = await fetch('/api/admin/fleet');
+                // 2. Cargar Flota con cabecera Authorization JWT
+                const resFleet = await fetch('/api/admin/fleet', { headers: authHeaders });
                 const fleetJson = await resFleet.json();
                 if (fleetJson.fleet) {
                     renderFleet(fleetJson.fleet);
                 }
 
-                // 3. Cargar Operaciones
-                const resOps = await fetch('/api/admin/operations?limit=15');
+                // 3. Cargar Operaciones con cabecera Authorization JWT
+                const resOps = await fetch('/api/admin/operations?limit=15', { headers: authHeaders });
                 const opsJson = await resOps.json();
                 if (opsJson.operations) {
                     renderOperations(opsJson.operations);
@@ -557,7 +744,7 @@
 
         async function inspectContract(requestId) {
             try {
-                const token = localStorage.getItem('josepo_driver_token') || localStorage.getItem('josepo_client_token');
+                const token = adminToken || localStorage.getItem('josepo_driver_token') || localStorage.getItem('josepo_client_token');
                 const res = await fetch(`/api/contracts/${requestId}`, {
                     headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                 });
@@ -579,9 +766,10 @@
         }
 
         function initSocket() {
-            socket = io();
+            if (socket) return;
+            socket = io({ auth: { token: adminToken } });
             socket.on('truck_status_update', (data) => {
-                loadAdminData();
+                if (adminToken) loadAdminData();
             });
             socket.on('truck_position_broadcast', (data) => {
                 if (truckMarkers[data.truck_id]) {
@@ -592,10 +780,11 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             initMap();
-            loadAdminData();
-            initSocket();
-            // Refresco periódico cada 30 segundos
-            setInterval(loadAdminData, 30000);
+            checkAdminSession();
+            // Refresco periódico cada 30 segundos si la sesión de admin está activa
+            setInterval(() => {
+                if (adminToken) loadAdminData();
+            }, 30000);
         });
     </script>
 </body>

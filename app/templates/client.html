@@ -906,15 +906,26 @@
             <!-- Selector de Puntos -->
             <div id="selection-panel">
                 <div class="location-pickers">
-                    <div class="picker-box" onclick="useCurrentGpsLocation()">
+                    <div class="picker-box" style="flex-wrap: wrap;">
                         <span class="picker-icon">📍</span>
                         <div class="picker-text">
-                            <div class="picker-label">Lugar del Siniestro / Avería</div>
-                            <div class="picker-val" id="origin-display">Detectando ubicación GPS...</div>
+                            <div class="picker-label">Lugar del Siniestro / Avería (Arrastra el pin rojo o elige zona)</div>
+                            <div class="picker-val" id="origin-display">Caracas Centro (10.5000, -66.9167)</div>
                         </div>
-                        <button
-                            style="background:var(--secondary-blue); border:none; color:white; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700;">MI
-                            GPS</button>
+                        <div style="display: flex; gap: 6px; align-items: center;">
+                            <select id="demo-zone-select" onchange="onSelectDemoZone(this.value)"
+                                style="background:#0F172A; color:var(--primary-emerald); border:1px solid var(--border-color); padding:5px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;"
+                                title="Saltar rápidamente a ciudades con grúas activas">
+                                <option value="10.5000,-66.9167">📍 Caracas Centro (GRU-001)</option>
+                                <option value="10.4682,-66.9966">📍 Caracas Oeste (GRU-005)</option>
+                                <option value="10.2440,-67.5970">📍 Maracay (GRU-002)</option>
+                                <option value="10.1800,-68.0039">📍 Valencia (GRU-003)</option>
+                                <option value="8.3409,-62.6440">📍 Puerto Ordaz (GRU-004)</option>
+                            </select>
+                            <button onclick="useCurrentGpsLocation(true)"
+                                style="background:var(--secondary-blue); border:none; color:white; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;"
+                                title="Usar GPS físico del navegador">📡 MI GPS</button>
+                        </div>
                     </div>
 
                     <div class="picker-box"
@@ -1509,14 +1520,34 @@
             });
         }
 
-        function useCurrentGpsLocation() {
+        function onSelectDemoZone(val) {
+            if (!val) return;
+            const parts = val.split(',');
+            const lat = parseFloat(parts[0]);
+            const lng = parseFloat(parts[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                originCoords = [lat, lng];
+                if (originMarker) originMarker.setLatLng(originCoords);
+                if (map) map.setView(originCoords, 14);
+                document.getElementById('origin-display').innerText = `Zona seleccionada (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+                updateEstimate();
+            }
+        }
+
+        function useCurrentGpsLocation(manualTrigger = false) {
+            if (!manualTrigger) {
+                // Por defecto mantener en Caracas Centro junto a las grúas demo (Auditoría #2)
+                document.getElementById('origin-display').innerText = `Caracas Centro (${originCoords[0].toFixed(4)}, ${originCoords[1].toFixed(4)})`;
+                updateEstimate();
+                return;
+            }
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         originCoords = [pos.coords.latitude, pos.coords.longitude];
                         originMarker.setLatLng(originCoords);
                         map.setView(originCoords, 14);
-                        document.getElementById('origin-display').innerText = `Mi ubicación (${originCoords[0].toFixed(4)}, ${originCoords[1].toFixed(4)})`;
+                        document.getElementById('origin-display').innerText = `Mi GPS Real (${originCoords[0].toFixed(4)}, ${originCoords[1].toFixed(4)})`;
                         updateEstimate();
                     },
                     (err) => {
