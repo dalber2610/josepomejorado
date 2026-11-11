@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Josepo - Auxilio Vial y Garantía Segura</title>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
         :root {
             --bg-main: #0B1120;
@@ -87,10 +89,17 @@
             flex-direction: column;
         }
 
-        #client-map {
+        #client-map, #driver-map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             width: 100%;
             height: 100%;
+            min-height: 100vh;
             z-index: 10;
+            background-color: #1E293B; /* Color de respaldo mientras cargan los tiles */
         }
 
         /* Tarjeta Flotante Inferior de Solicitud */
@@ -105,7 +114,7 @@
             border-top: 1px solid var(--border-color);
             border-radius: 24px 24px 0 0;
             z-index: 500;
-            box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+            box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.6);
             max-height: 58vh;
             overflow-y: auto;
         }
@@ -230,8 +239,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .tracker-info h3 {
@@ -293,7 +307,10 @@
         #client-login-modal {
             display: flex;
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: var(--bg-main);
             z-index: 3000;
             align-items: center;
@@ -348,7 +365,8 @@
             margin-bottom: 4px;
         }
 
-        .form-group input, .form-group select {
+        .form-group input,
+        .form-group select {
             width: 100%;
             padding: 12px;
             background: #0F172A;
@@ -455,9 +473,17 @@
         }
 
         @keyframes pulseVoice {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
         }
 
         .points-pill-btn {
@@ -511,6 +537,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <!-- Modal Login / Verificación Telefónica OTP -->
@@ -518,9 +545,12 @@
         <div class="modal-box">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
                 <h2 style="font-size: 20px; font-weight: 800;">Acceso de Usuario</h2>
-                <button onclick="closeLoginModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer; line-height:1;" title="Cerrar">✕</button>
+                <button onclick="closeLoginModal()"
+                    style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer; line-height:1;"
+                    title="Cerrar">✕</button>
             </div>
-            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Identifícate para solicitar auxilio vial protegido con garantía</p>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">Identifícate para solicitar
+                auxilio vial protegido con garantía</p>
 
             <!-- Selector de Método: SOS OTP (Recomendado) vs Contraseña -->
             <div class="tab-selector">
@@ -533,7 +563,8 @@
                 <div class="form-group">
                     <label>Número de Teléfono Móvil:</label>
                     <input type="tel" id="otp-phone" placeholder="+584141234567" value="+584140000002">
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">💡 Demo rápido: número precargado <b>+584140000002</b></div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">💡 Demo rápido: número
+                        precargado <b>+584140000002</b></div>
                 </div>
                 <button class="btn-auth btn-secondary" id="btn-request-otp" onclick="requestOtpCode()">
                     📲 Enviar Código de Verificación
@@ -542,7 +573,8 @@
                 <div id="otp-input-section" style="display: none; margin-top: 14px;">
                     <div class="form-group">
                         <label>Código de 6 dígitos recibido:</label>
-                        <input type="text" id="otp-code" maxlength="6" placeholder="123456" style="text-align: center; font-size: 18px; letter-spacing: 4px;">
+                        <input type="text" id="otp-code" maxlength="6" placeholder="123456"
+                            style="text-align: center; font-size: 18px; letter-spacing: 4px;">
                     </div>
                     <div class="form-group">
                         <label>Tu Nombre Completo (Opcional):</label>
@@ -561,13 +593,16 @@
                 <div class="form-group">
                     <label>Contraseña:</label>
                     <input type="password" id="client-password" value="Cliente2026!">
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">💡 Demo: <b>cliente@ejemplo.com</b> / <b>Cliente2026!</b></div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">💡 Demo:
+                        <b>cliente@ejemplo.com</b> / <b>Cliente2026!</b></div>
                 </div>
                 <button class="btn-auth" onclick="loginClientPassword()">Entrar con Contraseña</button>
             </div>
 
-            <div id="modal-logout-section" style="display: none; margin-top: 14px; text-align: center; border-top: 1px solid var(--border-color); padding-top: 12px;">
-                <button onclick="logoutClient()" style="background: transparent; border: 1px solid var(--danger-red); color: var(--danger-red); padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">
+            <div id="modal-logout-section"
+                style="display: none; margin-top: 14px; text-align: center; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <button onclick="logoutClient()"
+                    style="background: transparent; border: 1px solid var(--danger-red); color: var(--danger-red); padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;">
                     🚪 Cerrar Sesión Activa
                 </button>
             </div>
@@ -575,31 +610,41 @@
     </div>
 
     <!-- Modal Información de Garantía Pago Móvil Escrow -->
-    <div id="escrow-info-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:20px;">
+    <div id="escrow-info-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:20px;">
         <div class="modal-box">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="font-size: 18px; font-weight: 800; color: var(--primary-emerald);">🔒 Garantía Escrow 85/15</h3>
-                <button onclick="closeEscrowInfoModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--primary-emerald);">🔒 Garantía Escrow 85/15
+                </h3>
+                <button onclick="closeEscrowInfoModal()"
+                    style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
             </div>
             <p style="font-size: 13px; color: var(--text-main); margin-bottom: 12px; line-height: 1.5;">
-                Para garantizar que el operador de la grúa acuda de inmediato a tu rescate y evitar falsas solicitudes, Josepo utiliza un modelo de <b>Garantía en Depósito (Escrow)</b>:
+                Para garantizar que el operador de la grúa acuda de inmediato a tu rescate y evitar falsas solicitudes,
+                Josepo utiliza un modelo de <b>Garantía en Depósito (Escrow)</b>:
             </p>
-            <ul style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-left: 18px; margin-bottom: 16px;">
-                <li><b>85% para el Chofer:</b> Se libera automáticamente a su cuenta de Pago Móvil una vez que el vehículo esté a salvo en el destino.</li>
-                <li><b>15% de Plataforma:</b> Cubre el monitoreo por telemetría GPS satelital en vivo y soporte 24/7.</li>
-                <li><b>Protección Total:</b> Si cancelas oportunamente o no hay disponibilidad, tu garantía es 100% reembolsable.</li>
+            <ul
+                style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin-left: 18px; margin-bottom: 16px;">
+                <li><b>85% para el Chofer:</b> Se libera automáticamente a su cuenta de Pago Móvil una vez que el
+                    vehículo esté a salvo en el destino.</li>
+                <li><b>15% de Plataforma:</b> Cubre el monitoreo por telemetría GPS satelital en vivo y soporte 24/7.
+                </li>
+                <li><b>Protección Total:</b> Si cancelas oportunamente o no hay disponibilidad, tu garantía es 100%
+                    reembolsable.</li>
             </ul>
             <button class="btn-auth" onclick="closeEscrowInfoModal()">Entendido ✓</button>
         </div>
     </div>
 
     <!-- Modal Fase 4: Calificación y Acta de Entrega Certificada -->
-    <div id="rating-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:20px;">
+    <div id="rating-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:20px;">
         <div class="modal-box" style="text-align:center;">
             <div style="font-size:40px; margin-bottom:8px;">⭐</div>
             <h2 style="font-size:20px; font-weight:800; margin-bottom:6px;">¡Auxilio Vial Concluido!</h2>
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Califica la atención del chofer y obtén tu Acta Digital de Remolque con validez para seguros.</p>
-            
+            <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Califica la atención del chofer y
+                obtén tu Acta Digital de Remolque con validez para seguros.</p>
+
             <div class="form-group" style="margin-bottom:12px; text-align:left;">
                 <label>Puntuación del Operador:</label>
                 <select id="rating-stars" style="font-size:15px; font-weight:700; color:var(--warning-amber);">
@@ -621,23 +666,33 @@
     </div>
 
     <!-- Modal Fase 5: Club Guardián Vial, Puntos y Talleres Aliados -->
-    <div id="rewards-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+    <div id="rewards-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
         <div class="modal-box" style="max-width: 480px; max-height: 88vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="font-size: 18px; font-weight: 800; color: var(--primary-emerald);">🏆 Club Guardián Vial & Aliados</h3>
-                <button onclick="closeRewardsModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--primary-emerald);">🏆 Club Guardián Vial &
+                    Aliados</h3>
+                <button onclick="closeRewardsModal()"
+                    style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
             </div>
 
             <!-- Resumen de Reputación del Conductor/Usuario -->
-            <div style="background: linear-gradient(135deg, #0F172A, #1E293B); border: 1px solid var(--primary-emerald); border-radius: 14px; padding: 14px; margin-bottom: 14px;">
+            <div
+                style="background: linear-gradient(135deg, #0F172A, #1E293B); border: 1px solid var(--primary-emerald); border-radius: 14px; padding: 14px; margin-bottom: 14px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
-                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Tu Saldo Disponible</div>
-                        <div style="font-size: 24px; font-weight: 800; color: var(--primary-emerald);" id="modal-points-balance">0 pts</div>
+                        <div
+                            style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">
+                            Tu Saldo Disponible</div>
+                        <div style="font-size: 24px; font-weight: 800; color: var(--primary-emerald);"
+                            id="modal-points-balance">0 pts</div>
                     </div>
                     <div style="text-align: right;">
-                        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Nivel de Reputación</div>
-                        <div style="font-size: 14px; font-weight: 800; color: var(--warning-amber);" id="modal-reputation-level">🥉 BRONCE</div>
+                        <div
+                            style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">
+                            Nivel de Reputación</div>
+                        <div style="font-size: 14px; font-weight: 800; color: var(--warning-amber);"
+                            id="modal-reputation-level">🥉 BRONCE</div>
                     </div>
                 </div>
                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;" id="modal-next-level-hint">
@@ -647,7 +702,8 @@
 
             <!-- Pestañas del Club Vial -->
             <div class="tab-selector">
-                <button class="tab-btn active" id="tab-catalog" onclick="setRewardsTab('catalog')">🛠️ Talleres Aliados</button>
+                <button class="tab-btn active" id="tab-catalog" onclick="setRewardsTab('catalog')">🛠️ Talleres
+                    Aliados</button>
                 <button class="tab-btn" id="tab-coupons" onclick="setRewardsTab('coupons')">🎟️ Mis Cupones</button>
                 <button class="tab-btn" id="tab-ranking" onclick="setRewardsTab('ranking')">🏅 Top Vial</button>
             </div>
@@ -667,15 +723,19 @@
     </div>
 
     <!-- Modal Fase 5: Radar Vial y Validación Cruzada de Tráfico -->
-    <div id="traffic-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+    <div id="traffic-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
         <div class="modal-box" style="max-width: 480px; max-height: 88vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="font-size: 18px; font-weight: 800; color: var(--warning-amber);">🚧 Radar Vial & Validación Cruzada</h3>
-                <button onclick="closeTrafficModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--warning-amber);">🚧 Radar Vial & Validación
+                    Cruzada</h3>
+                <button onclick="closeTrafficModal()"
+                    style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
             </div>
 
             <!-- Crear Reporte (+25 pts) -->
-            <div style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; margin-bottom: 14px;">
+            <div
+                style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 14px; padding: 12px; margin-bottom: 14px;">
                 <div style="font-size: 13px; font-weight: 800; margin-bottom: 8px; color: var(--primary-emerald);">
                     ➕ Reportar Incidente en mi Ubicación (+25 pts)
                 </div>
@@ -691,9 +751,11 @@
                 </div>
                 <div class="form-group" style="margin-bottom: 8px;">
                     <label>Descripción breve para otros conductores:</label>
-                    <input type="text" id="traffic-desc" placeholder="Ej: Vehículo varado en canal rápido autopista..." value="Vehículo accidentado en el canal derecho, precaución.">
+                    <input type="text" id="traffic-desc" placeholder="Ej: Vehículo varado en canal rápido autopista..."
+                        value="Vehículo accidentado en el canal derecho, precaución.">
                 </div>
-                <button class="btn-auth" style="margin-top: 4px; padding: 10px; font-size: 13px;" onclick="submitTrafficReport()">
+                <button class="btn-auth" style="margin-top: 4px; padding: 10px; font-size: 13px;"
+                    onclick="submitTrafficReport()">
                     📢 Publicar Reporte y Ganar +25 Puntos
                 </button>
             </div>
@@ -707,19 +769,24 @@
     </div>
 
     <!-- Modal Fase 5: Botón SOS Familiar con Enlace de Rastreo en Vivo -->
-    <div id="family-sos-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+    <div id="family-sos-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.94); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
         <div class="modal-box" style="max-width: 440px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h3 style="font-size: 18px; font-weight: 800; color: var(--danger-red);">🆘 Botón SOS Familiar en Vivo</h3>
-                <button onclick="closeFamilySosModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+                <h3 style="font-size: 18px; font-weight: 800; color: var(--danger-red);">🆘 Botón SOS Familiar en Vivo
+                </h3>
+                <button onclick="closeFamilySosModal()"
+                    style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
             </div>
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
-                Envía una alerta inmediata por <b>SMS / WhatsApp</b> a tu familiar de confianza con tus coordenadas GPS exactas y un <b>enlace de rastreo en vivo</b> de tu grúa.
+                Envía una alerta inmediata por <b>SMS / WhatsApp</b> a tu familiar de confianza con tus coordenadas GPS
+                exactas y un <b>enlace de rastreo en vivo</b> de tu grúa.
             </p>
 
             <div class="form-group">
                 <label>Nombre del Familiar / Contacto de Emergencia:</label>
-                <input type="text" id="sos-contact-name" placeholder="Ej: María Pérez (Esposa / Madre)" value="María Pérez (Familiar SOS)">
+                <input type="text" id="sos-contact-name" placeholder="Ej: María Pérez (Esposa / Madre)"
+                    value="María Pérez (Familiar SOS)">
             </div>
             <div class="form-group">
                 <label>Teléfono del Familiar (SMS / WhatsApp):</label>
@@ -727,17 +794,22 @@
             </div>
             <div class="form-group">
                 <label>Mensaje de Estado (Opcional):</label>
-                <input type="text" id="sos-custom-msg" value="Sufrí una avería vial. Estoy solicitando grúa en Josepo, sigue mi ubicación aquí.">
+                <input type="text" id="sos-custom-msg"
+                    value="Sufrí una avería vial. Estoy solicitando grúa en Josepo, sigue mi ubicación aquí.">
             </div>
 
             <button class="btn-panic" style="margin-top: 8px;" onclick="triggerFamilySos('BUTTON')">
                 📲 ENVIAR ALERTA SOS A MI FAMILIAR AHORA
             </button>
 
-            <div id="sos-result-box" style="display: none; margin-top: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--primary-emerald); border-radius: 12px;">
-                <div style="font-size: 12px; font-weight: 800; color: var(--primary-emerald); margin-bottom: 4px;">✓ Alerta SMS/WhatsApp Despachada</div>
-                <div style="font-size: 11px; color: var(--text-main); word-break: break-all; margin-bottom: 6px;" id="sos-result-text"></div>
-                <a id="sos-tracking-link" href="#" target="_blank" style="font-size: 12px; font-weight: 800; color: var(--secondary-blue); text-decoration: underline;">
+            <div id="sos-result-box"
+                style="display: none; margin-top: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--primary-emerald); border-radius: 12px;">
+                <div style="font-size: 12px; font-weight: 800; color: var(--primary-emerald); margin-bottom: 4px;">✓
+                    Alerta SMS/WhatsApp Despachada</div>
+                <div style="font-size: 11px; color: var(--text-main); word-break: break-all; margin-bottom: 6px;"
+                    id="sos-result-text"></div>
+                <a id="sos-tracking-link" href="#" target="_blank"
+                    style="font-size: 12px; font-weight: 800; color: var(--secondary-blue); text-decoration: underline;">
                     🛰️ Abrir Enlace de Rastreo Familiar en Vivo ↗
                 </a>
             </div>
@@ -745,34 +817,45 @@
     </div>
 
     <!-- Modal Fase 5: Asistente de Comandos de Voz Manos Libres (Web Speech API) -->
-    <div id="voice-assistant-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
+    <div id="voice-assistant-modal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(11,17,32,0.92); backdrop-filter:blur(8px); z-index:3500; align-items:center; justify-content:center; padding:16px;">
         <div class="modal-box" style="text-align: center; max-width: 420px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h3 style="font-size: 17px; font-weight: 800; color: var(--secondary-blue);">🎙️ Control por Voz Manos Libres</h3>
-                <button onclick="closeVoiceModal()" style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
+                <h3 style="font-size: 17px; font-weight: 800; color: var(--secondary-blue);">🎙️ Control por Voz Manos
+                    Libres</h3>
+                <button onclick="closeVoiceModal()"
+                    style="background:none; border:none; color:var(--text-muted); font-size:22px; cursor:pointer;">✕</button>
             </div>
             <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">
                 Ideal en emergencias nocturnas o accidentes. Habla al micrófono o pulsa un comando de voz rápido:
             </p>
 
-            <div id="voice-status-box" style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 14px;">
+            <div id="voice-status-box"
+                style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 14px; padding: 16px; margin-bottom: 14px;">
                 <div style="font-size: 32px; margin-bottom: 6px;" id="voice-mic-icon">🎙️</div>
                 <div style="font-size: 14px; font-weight: 800;" id="voice-status-title">Listo para escuchar</div>
-                <div style="font-size: 12px; color: var(--primary-emerald); margin-top: 4px;" id="voice-transcript-preview">Di: "Solicitar grúa", "SOS familiar" o "Reportar accidente"</div>
+                <div style="font-size: 12px; color: var(--primary-emerald); margin-top: 4px;"
+                    id="voice-transcript-preview">Di: "Solicitar grúa", "SOS familiar" o "Reportar accidente"</div>
             </div>
 
-            <button class="btn-panic" id="btn-start-listening" onclick="startSpeechRecognition()" style="background: linear-gradient(135deg, #3B82F6, #1D4ED8); box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4); margin-bottom: 14px;">
+            <button class="btn-panic" id="btn-start-listening" onclick="startSpeechRecognition()"
+                style="background: linear-gradient(135deg, #3B82F6, #1D4ED8); box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4); margin-bottom: 14px;">
                 🎙️ Hablar Ahora (Web Speech API)
             </button>
 
-            <div style="text-align: left; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 700;">
+            <div
+                style="text-align: left; font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 700;">
                 ⚡ Simulador de Comandos de Voz (Prueba instantánea sin micrófono):
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                <button class="chip-btn" onclick="processVoiceCommand('solicitar grúa urgente')">🗣️ "Solicitar grúa urgente"</button>
-                <button class="chip-btn" onclick="processVoiceCommand('enviar alerta sos familiar')">🗣️ "Enviar alerta SOS familiar"</button>
-                <button class="chip-btn" onclick="processVoiceCommand('reportar accidente en la vía')">🗣️ "Reportar accidente en la vía"</button>
-                <button class="chip-btn" onclick="processVoiceCommand('ver mis puntos y recompensas')">🗣️ "Ver mis puntos y recompensas"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('solicitar grúa urgente')">🗣️ "Solicitar grúa
+                    urgente"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('enviar alerta sos familiar')">🗣️ "Enviar alerta
+                    SOS familiar"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('reportar accidente en la vía')">🗣️ "Reportar
+                    accidente en la vía"</button>
+                <button class="chip-btn" onclick="processVoiceCommand('ver mis puntos y recompensas')">🗣️ "Ver mis
+                    puntos y recompensas"</button>
             </div>
         </div>
     </div>
@@ -790,7 +873,8 @@
             <div class="bcv-rate-badge" id="bcv-badge">
                 BCV: Cargando...
             </div>
-            <button class="btn-user-badge" id="btn-user-profile" onclick="openLoginModal()" title="Acceso / Cambiar Usuario">
+            <button class="btn-user-badge" id="btn-user-profile" onclick="openLoginModal()"
+                title="Acceso / Cambiar Usuario">
                 <span id="user-display-name">⚡ Ingresar</span>
             </button>
         </div>
@@ -802,20 +886,23 @@
 
         <!-- Botones Flotantes Fase 5: Voz Manos Libres, SOS Familiar y Radar Vial -->
         <div class="floating-action-dock">
-            <button class="fab-btn" id="fab-voice-btn" onclick="openVoiceModal()" title="Comandos de Voz Manos Libres (Web Speech API)">
+            <button class="fab-btn" id="fab-voice-btn" onclick="openVoiceModal()"
+                title="Comandos de Voz Manos Libres (Web Speech API)">
                 <span>🎙️</span> <span>Voz SOS</span>
             </button>
-            <button class="fab-btn sos-family" onclick="openFamilySosModal()" title="Enviar Alerta SMS/WhatsApp a Familiar con Rastreo en Vivo">
+            <button class="fab-btn sos-family" onclick="openFamilySosModal()"
+                title="Enviar Alerta SMS/WhatsApp a Familiar con Rastreo en Vivo">
                 <span>🆘</span> <span>SOS Familiar</span>
             </button>
-            <button class="fab-btn" onclick="openTrafficModal()" title="Reportar Tráfico (+25 pts) o Confirmar Reportes (+10 pts)">
+            <button class="fab-btn" onclick="openTrafficModal()"
+                title="Reportar Tráfico (+25 pts) o Confirmar Reportes (+10 pts)">
                 <span>🚧</span> <span>Radar Vial (+Pts)</span>
             </button>
         </div>
 
         <!-- Panel Flotante de Solicitud -->
         <div class="bottom-card">
-            
+
             <!-- Selector de Puntos -->
             <div id="selection-panel">
                 <div class="location-pickers">
@@ -825,10 +912,13 @@
                             <div class="picker-label">Lugar del Siniestro / Avería</div>
                             <div class="picker-val" id="origin-display">Detectando ubicación GPS...</div>
                         </div>
-                        <button style="background:var(--secondary-blue); border:none; color:white; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700;">MI GPS</button>
+                        <button
+                            style="background:var(--secondary-blue); border:none; color:white; padding:6px 10px; border-radius:8px; font-size:11px; font-weight:700;">MI
+                            GPS</button>
                     </div>
 
-                    <div class="picker-box" onclick="alert('Haz click en el mapa en el punto donde deseas remolcar el vehículo.')">
+                    <div class="picker-box"
+                        onclick="alert('Haz click en el mapa en el punto donde deseas remolcar el vehículo.')">
                         <span class="picker-icon">🏁</span>
                         <div class="picker-text">
                             <div class="picker-label">Destino (Taller / Residencia)</div>
@@ -859,11 +949,15 @@
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-size: 18px;">🛡️</span>
                             <div>
-                                <div style="font-size: 12px; font-weight: 800; color: var(--primary-emerald);">Garantía de Pago Móvil Escrow (85/15)</div>
-                                <div style="font-size: 11px; color: var(--text-muted);">Tus fondos se congelan seguros y solo se liberan al completar el viaje.</div>
+                                <div style="font-size: 12px; font-weight: 800; color: var(--primary-emerald);">Garantía
+                                    de Pago Móvil Escrow (85/15)</div>
+                                <div style="font-size: 11px; color: var(--text-muted);">Tus fondos se congelan seguros y
+                                    solo se liberan al completar el viaje.</div>
                             </div>
                         </div>
-                        <span style="font-size: 11px; color: var(--secondary-blue); font-weight: 700; white-space: nowrap;">Info ℹ️</span>
+                        <span
+                            style="font-size: 11px; color: var(--secondary-blue); font-weight: 700; white-space: nowrap;">Info
+                            ℹ️</span>
                     </div>
                 </div>
 
@@ -882,10 +976,12 @@
                     </div>
                 </div>
 
-                <div id="assigned-driver-card" style="display:none; background:#0F172A; padding:12px; border-radius:12px; margin-bottom:10px; border:1px solid var(--border-color);">
+                <div id="assigned-driver-card"
+                    style="display:none; background:#0F172A; padding:12px; border-radius:12px; margin-bottom:10px; border:1px solid var(--border-color);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                         <span style="font-size:12px; color:var(--text-muted);">Unidad Asignada:</span>
-                        <span style="font-size:13px; font-weight:800; color:var(--primary-emerald);" id="assigned-plate">GRU-001</span>
+                        <span style="font-size:13px; font-weight:800; color:var(--primary-emerald);"
+                            id="assigned-plate">GRU-001</span>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                         <span style="font-size:12px; color:var(--text-muted);">Conductor:</span>
@@ -893,7 +989,8 @@
                     </div>
                     <div style="display:flex; justify-content:space-between;">
                         <span style="font-size:12px; color:var(--text-muted);">Distancia restante:</span>
-                        <span style="font-size:13px; font-weight:800; color:var(--secondary-blue);" id="assigned-distance">Calculando...</span>
+                        <span style="font-size:13px; font-weight:800; color:var(--secondary-blue);"
+                            id="assigned-distance">Calculando...</span>
                     </div>
                 </div>
 
@@ -904,7 +1001,8 @@
                         <span class="escrow-badge unpaid" id="escrow-status-badge">PENDIENTE</span>
                     </div>
                     <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
-                        Para evitar falsas alarmas, registra tu pago móvil de garantía. Los fondos se mantienen congelados de forma segura y solo se transferirán al chofer al completar el traslado.
+                        Para evitar falsas alarmas, registra tu pago móvil de garantía. Los fondos se mantienen
+                        congelados de forma segura y solo se transferirán al chofer al completar el traslado.
                     </p>
 
                     <!-- Formulario de Pago Móvil -->
@@ -929,13 +1027,16 @@
                             <label>Número de Referencia (4 a 8 dígitos):</label>
                             <input type="text" id="pm-reference" placeholder="Ej: 894512" maxlength="12">
                         </div>
-                        <button class="btn-auth" style="margin-top: 0; padding: 10px; font-size: 13px;" onclick="submitPagoMovilEscrow()">
+                        <button class="btn-auth" style="margin-top: 0; padding: 10px; font-size: 13px;"
+                            onclick="submitPagoMovilEscrow()">
                             🔒 Validar y Congelar en Garantía
                         </button>
                     </div>
 
-                    <div id="pago-movil-confirmed" style="display: none; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid var(--primary-emerald);">
-                        <div style="font-size: 12px; font-weight: 700; color: var(--primary-emerald);">✓ Garantía Retenida en Escrow</div>
+                    <div id="pago-movil-confirmed"
+                        style="display: none; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid var(--primary-emerald);">
+                        <div style="font-size: 12px; font-weight: 700; color: var(--primary-emerald);">✓ Garantía
+                            Retenida en Escrow</div>
                         <div style="font-size: 11px; color: var(--text-muted);" id="pm-confirmed-ref">Ref #...</div>
                     </div>
                 </div>
@@ -990,6 +1091,7 @@
 
         function closeLoginModal() {
             document.getElementById('client-login-modal').style.display = 'none';
+            if (map) setTimeout(() => map.invalidateSize(), 150);
         }
 
         function logoutClient() {
@@ -1046,7 +1148,7 @@
                     const data = await res.json();
                     clientUser = data.user;
                     updateUserHeaderUI(clientUser);
-                    document.getElementById('client-login-modal').style.display = 'none';
+                    closeLoginModal();
                 } else {
                     console.warn("Token de cliente expirado o inválido.");
                     localStorage.removeItem('josepo_client_token');
@@ -1055,7 +1157,7 @@
                     updateUserHeaderUI(null);
                     openLoginModal();
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error validando sesión:", e);
             }
         }
@@ -1079,7 +1181,7 @@
                 }
                 document.getElementById('otp-input-section').style.display = 'block';
                 document.getElementById('btn-request-otp').innerText = 'Reenviar Código';
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
@@ -1104,7 +1206,7 @@
                 clientUser = data.user;
                 localStorage.setItem('josepo_client_token', clientToken);
                 updateUserHeaderUI(clientUser);
-                document.getElementById('client-login-modal').style.display = 'none';
+                closeLoginModal();
 
                 alert(`¡Bienvenido ${clientUser.full_name || clientUser.phone_number}! Sesión iniciada con éxito.`);
 
@@ -1113,7 +1215,7 @@
                 loadAvailableTrucks();
                 loadSupportedBanks();
                 useCurrentGpsLocation();
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
@@ -1135,7 +1237,7 @@
                 clientUser = data.user;
                 localStorage.setItem('josepo_client_token', clientToken);
                 updateUserHeaderUI(clientUser);
-                document.getElementById('client-login-modal').style.display = 'none';
+                closeLoginModal();
 
                 alert(`¡Bienvenido ${clientUser.full_name || clientUser.phone_number}! Sesión iniciada con éxito.`);
 
@@ -1144,7 +1246,7 @@
                 loadAvailableTrucks();
                 loadSupportedBanks();
                 useCurrentGpsLocation();
-            } catch(err) {
+            } catch (err) {
                 alert(err.message);
             }
         }
@@ -1158,7 +1260,7 @@
                     select.innerHTML = '<option value="">Selecciona tu banco</option>' +
                         data.banks.map(b => `<option value="${b.code}">${b.code} - ${b.name}</option>`).join('');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error cargando bancos:", e);
             }
         }
@@ -1198,16 +1300,43 @@
                 document.getElementById('escrow-status-badge').className = 'escrow-badge';
                 document.getElementById('escrow-status-badge').innerText = '🔒 GARANTÍA CONGELADA';
                 alert("¡Garantía congelada con éxito! La grúa tiene cobro garantizado al completar el viaje.");
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
 
         function initMap() {
             map = L.map('client-map', { zoomControl: false }).setView(originCoords, 13);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19
-            }).addTo(map);
+
+            const cartoTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            });
+
+            const osmFallbackTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            });
+
+            // Si CartoDB falla por bloqueo de red o CSP, cambia automáticamente a OpenStreetMap estándar
+            cartoTiles.on('tileerror', function() {
+                if (!map.hasLayer(osmFallbackTiles)) {
+                    console.warn("Cambiando a servidor de mapas OpenStreetMap de respaldo...");
+                    map.removeLayer(cartoTiles);
+                    osmFallbackTiles.addTo(map);
+                }
+            });
+
+            cartoTiles.addTo(map);
+
+            // CRÍTICO: Forzar a Leaflet a recalcular las dimensiones reales del contenedor
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+
+            window.addEventListener('resize', () => {
+                if (map) map.invalidateSize();
+            });
 
             const originIcon = L.divIcon({
                 html: `<div style="background:#EF4444; border:3px solid white; width:22px; height:22px; border-radius:50%; box-shadow:0 0 12px rgba(239, 68, 68, 0.7);"></div>`,
@@ -1216,13 +1345,13 @@
             });
             originMarker = L.marker(originCoords, { icon: originIcon, draggable: true }).addTo(map);
 
-            originMarker.on('dragend', function(e) {
+            originMarker.on('dragend', function (e) {
                 const pos = e.target.getLatLng();
                 originCoords = [pos.lat, pos.lng];
                 updateEstimate();
             });
 
-            map.on('click', function(e) {
+            map.on('click', function (e) {
                 setDestinationCoords(e.latlng.lat, e.latlng.lng);
             });
         }
@@ -1234,7 +1363,7 @@
                 if (res.ok && data.rate) {
                     document.getElementById('bcv-badge').innerText = `BCV: ${data.rate.toFixed(2)} VES`;
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error tasa BCV:", e);
             }
         }
@@ -1246,7 +1375,7 @@
                 if (res.ok && data.trucks) {
                     data.trucks.forEach(t => renderTruckOnMap(t));
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error cargando grúas:", e);
             }
         }
@@ -1283,7 +1412,7 @@
                 document.getElementById('tracking-spinner').style.borderTopColor = '#10B981';
                 document.getElementById('tracking-title').innerText = "¡Grúa Confirmada y en Camino!";
                 document.getElementById('tracking-subtitle').innerText = "El operador aceptó el auxilio vial.";
-                
+
                 document.getElementById('assigned-driver-card').style.display = 'block';
                 document.getElementById('assigned-plate').innerText = req.truck_plate || 'GRU-001';
                 document.getElementById('assigned-driver-name').innerText = req.driver_name || 'Operador Asignado';
@@ -1433,7 +1562,7 @@
                     document.getElementById('quote-usd').innerText = `${data.pricing.cost_usd} USD`;
                     document.getElementById('quote-ves').innerText = `${data.pricing.cost_ves} VES`;
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error estimación:", e);
             }
         }
@@ -1481,7 +1610,7 @@
                 document.getElementById('tracking-panel').style.display = 'block';
                 document.getElementById('tracking-panel').scrollIntoView({ behavior: 'smooth' });
 
-            } catch(err) {
+            } catch (err) {
                 alert(err.message);
             }
         }
@@ -1496,7 +1625,7 @@
                 const data = await res.json();
                 alert(data.message || "Solicitud cancelada.");
                 resetUi();
-            } catch(e) {
+            } catch (e) {
                 console.error(e);
             }
         }
@@ -1543,7 +1672,7 @@
                 alert(`¡Gracias por tu valoración (${rating} ⭐)!\nTu Acta Digital ha sido firmada. Token de verificación para tu aseguradora: ${data.contract.legal_receipt.token.substring(0, 16)}...`);
                 resetUi();
                 loadGamificationProfile();
-            } catch(e) {
+            } catch (e) {
                 console.error(e);
                 document.getElementById('rating-modal').style.display = 'none';
                 resetUi();
@@ -1565,7 +1694,7 @@
                     utterance.rate = 1.05;
                     window.speechSynthesis.speak(utterance);
                 }
-            } catch(e) {
+            } catch (e) {
                 console.log("Síntesis de voz no disponible:", e);
             }
         }
@@ -1629,7 +1758,7 @@
                 } else {
                     couponsContainer.innerHTML = `<div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 14px;">Aún no tienes cupones activos. Canjea tus puntos en la pestaña de Talleres Aliados.</div>`;
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error cargando perfil de gamificación:", e);
             }
         }
@@ -1653,7 +1782,7 @@
                         </div>
                     `).join('');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error cargando recompensas:", e);
             }
         }
@@ -1679,7 +1808,7 @@
                 alert(`🎉 ${data.message}\nCódigo de Cupón: ${data.redemption.coupon_code}`);
                 await loadGamificationProfile();
                 setRewardsTab('coupons');
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
@@ -1703,7 +1832,7 @@
                         </div>
                     `).join('');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error cargando ranking:", e);
             }
         }
@@ -1774,7 +1903,7 @@
                         </div>
                     `).join('');
                 }
-            } catch(e) {
+            } catch (e) {
                 console.error("Error cargando reportes viales:", e);
             }
         }
@@ -1812,7 +1941,7 @@
                 alert(`🎉 ${data.message}`);
                 await loadTrafficReports();
                 await loadGamificationProfile();
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
@@ -1837,7 +1966,7 @@
                 alert(`🏆 ${data.message}`);
                 await loadTrafficReports();
                 await loadGamificationProfile();
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
@@ -1895,7 +2024,7 @@
                 } else {
                     alert(data.message);
                 }
-            } catch(e) {
+            } catch (e) {
                 alert(e.message);
             }
         }
@@ -1909,7 +2038,7 @@
             document.getElementById('voice-assistant-modal').style.display = 'none';
             document.getElementById('fab-voice-btn').classList.remove('voice-active');
             if (speechRecognitionInstance) {
-                try { speechRecognitionInstance.stop(); } catch(e) {}
+                try { speechRecognitionInstance.stop(); } catch (e) { }
             }
         }
 
@@ -1995,4 +2124,5 @@
         });
     </script>
 </body>
+
 </html>

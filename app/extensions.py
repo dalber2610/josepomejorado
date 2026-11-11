@@ -11,6 +11,7 @@ from flask_limiter.util import get_remote_address
 DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5000',
     'http://127.0.0.1:5000',
+    'http://0.0.0.0:5000',
     'https://josepo.ve',
     'https://app.josepo.ve',
     'https://admin.josepo.ve',
@@ -76,7 +77,7 @@ def init_security_extensions(app):
     # 3. Inicializar SocketIO con lista blanca de orígenes
     socketio.init_app(app, cors_allowed_origins=allowed_origins)
 
-    # 4. Inyectar cabeceras de seguridad HTTP en cada respuesta (Hardening OWASP)
+    # 4. Inyectar cabeceras de seguridad HTTP en cada respuesta (Hardening OWASP + Permiso de Tiles de Mapa)
     @app.after_request
     def apply_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -84,4 +85,9 @@ def init_security_extensions(app):
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; "
+            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org http: https:; "
+            "connect-src 'self' ws: wss: http: https:;"
+        )
         return response

@@ -191,10 +191,11 @@
         }
 
         #admin-map {
-            flex: 1;
             width: 100%;
-            min-height: 420px;
+            height: 450px !important;
+            min-height: 450px;
             z-index: 10;
+            background-color: #1E293B;
         }
 
         .fleet-card {
@@ -408,9 +409,36 @@
         function initMap() {
             // Centrado en Venezuela (Caracas - Valencia - Maracay)
             map = L.map('admin-map', { zoomControl: true }).setView([10.3500, -66.9000], 8);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19
-            }).addTo(map);
+
+            const cartoTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            });
+
+            const osmFallbackTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            });
+
+            // Si CartoDB falla por bloqueo de red o CSP, cambia automáticamente a OpenStreetMap estándar
+            cartoTiles.on('tileerror', function() {
+                if (!map.hasLayer(osmFallbackTiles)) {
+                    console.warn("Cambiando a servidor de mapas OpenStreetMap de respaldo...");
+                    map.removeLayer(cartoTiles);
+                    osmFallbackTiles.addTo(map);
+                }
+            });
+
+            cartoTiles.addTo(map);
+
+            // CRÍTICO: Forzar a Leaflet a recalcular las dimensiones reales del contenedor
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+
+            window.addEventListener('resize', () => {
+                if (map) map.invalidateSize();
+            });
         }
 
         async function loadAdminData() {
