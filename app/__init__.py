@@ -57,6 +57,20 @@ def create_app(config_name: str = None) -> Flask:
     jwt.init_app(app)
     init_security_extensions(app)
 
+    # Middleware CSP explícito para permitir Leaflet, Socket.IO, Google Fonts y Tiles de CartoDB / OpenStreetMap
+    @app.after_request
+    def set_security_headers(response):
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.socket.io; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com; "
+            "connect-src 'self' ws: wss: http: https:;"
+        )
+        response.headers['Content-Security-Policy'] = csp
+        return response
+
     # Importar sockets
     from app import sockets  # noqa: F401
 

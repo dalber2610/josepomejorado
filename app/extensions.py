@@ -79,15 +79,19 @@ def init_security_extensions(app):
 
     # 4. Inyectar cabeceras de seguridad HTTP en cada respuesta (Hardening OWASP + Permiso de Tiles de Mapa)
     @app.after_request
-    def apply_security_headers(response):
+    def set_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-        response.headers['Content-Security-Policy'] = (
-            "default-src 'self' http: https: data: blob: 'unsafe-inline' 'unsafe-eval'; "
-            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://tile.openstreetmap.org https://*.tile.openstreetmap.org http: https:; "
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.socket.io; "
+            "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com; "
             "connect-src 'self' ws: wss: http: https:;"
         )
+        response.headers['Content-Security-Policy'] = csp
         return response
