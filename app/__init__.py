@@ -65,7 +65,7 @@ def create_app(config_name: str = None) -> Flask:
             "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.socket.io; "
             "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com data:; "
-            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://unpkg.com; "
+            "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://*.tile.openstreetmap.fr https://unpkg.com; "
             "connect-src 'self' ws: wss: http: https:;"
         )
         response.headers['Content-Security-Policy'] = csp

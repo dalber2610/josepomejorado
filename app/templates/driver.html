@@ -661,26 +661,24 @@
         function initMap() {
             map = L.map('driver-map', { zoomControl: false }).setView(currentPos, 14);
 
-            const cartoTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
-            });
-
-            const osmFallbackTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            const osmTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '&copy; OpenStreetMap contributors'
             });
 
-            // Si CartoDB falla por bloqueo de red o CSP, cambia automáticamente a OpenStreetMap estándar
-            cartoTiles.on('tileerror', function() {
-                if (!map.hasLayer(osmFallbackTiles)) {
-                    console.warn("Cambiando a servidor de mapas OpenStreetMap de respaldo...");
-                    map.removeLayer(cartoTiles);
-                    osmFallbackTiles.addTo(map);
+            const fallbackTiles = L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap HOT'
+            });
+
+            osmTiles.on('tileerror', function() {
+                if (!map.hasLayer(fallbackTiles)) {
+                    map.removeLayer(osmTiles);
+                    fallbackTiles.addTo(map);
                 }
             });
 
-            cartoTiles.addTo(map);
+            osmTiles.addTo(map);
 
             // CRÍTICO: Forzar a Leaflet a recalcular las dimensiones reales del contenedor
             setTimeout(() => {
