@@ -945,6 +945,10 @@
                         <div class="quote-value" id="quote-dist">-- km</div>
                     </div>
                     <div class="quote-item">
+                        <div class="quote-label">Tiempo Estimado</div>
+                        <div class="quote-value" id="quote-eta" style="color:var(--warning-amber);">-- min</div>
+                    </div>
+                    <div class="quote-item">
                         <div class="quote-label">Tarifa Estimada</div>
                         <div class="quote-value" id="quote-usd">-- USD</div>
                     </div>
@@ -998,10 +1002,20 @@
                         <span style="font-size:12px; color:var(--text-muted);">Conductor:</span>
                         <span style="font-size:13px; font-weight:700;" id="assigned-driver-name">Juan Conductor</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
                         <span style="font-size:12px; color:var(--text-muted);">Distancia restante:</span>
                         <span style="font-size:13px; font-weight:800; color:var(--secondary-blue);"
                             id="assigned-distance">Calculando...</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:1px dashed var(--border-color);">
+                        <span style="font-size:12px; color:var(--text-muted);">⏱️ Tiempo aprox. de llegada:</span>
+                        <span style="font-size:13px; font-weight:800; color:var(--warning-amber); background:rgba(245,158,11,0.14); padding:3px 8px; border-radius:6px; border:1px solid rgba(245,158,11,0.4);"
+                            id="assigned-eta">Calculando...</span>
+                    </div>
+                    <div style="margin-top:8px;">
+                        <div style="width:100%; height:6px; background:#1E293B; border-radius:999px; overflow:hidden;">
+                            <div id="client-route-progress-fill" style="width:8%; height:100%; background:linear-gradient(90deg, #3B82F6, #10B981); transition:width 0.4s ease;"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -1067,12 +1081,140 @@
         let originMarker, destMarker;
         let truckMarkers = {};
         let activeTruckMarker = null;
+        let clientRouteGlow = null;
+        let clientRouteLine = null;
+        let clientRouteCoords = [];
+        let clientInitialDistKm = null;
+        let clientRemainingSeconds = 0;
+        let clientEtaInterval = null;
         let socket;
         let clientToken = localStorage.getItem('josepo_client_token');
         let clientUser = null;
         let originCoords = [10.5000, -66.9167];
         let destCoords = null;
         let currentRequestId = null;
+
+        function formatSecondsToEta(sec) {
+            const s = Math.max(0, Math.round(sec || 0));
+            if (s <= 0) return "¡En el sitio! (0 min)";
+            const m = Math.floor(s / 60);
+            const r = s % 60;
+            if (m > 0) return `${m} min ${String(r).padStart(2, '0')} seg`;
+            return `${r} seg (Llegando)`;
+        }
+
+        function startClientEtaCountdown(totalSeconds, distKm) {
+            clientRemainingSeconds = Math.max(0, Math.round(totalSeconds || 0));
+            if (distKm !== undefined && distKm !== null) {
+                if (!clientInitialDistKm || distKm > clientInitialDistKm) {
+                    clientInitialDistKm = Math.max(0.2, distKm);
+                }
+                updateClientRouteProgress(distKm);
+            }
+            const etaEl = document.getElementById('assigned-eta');
+            if (etaEl) {
+                etaEl.innerText = formatSecondsToEta(clientRemainingSeconds);
+                if (clientRemainingSeconds <= 0) {
+                    etaEl.style.color = 'var(--primary-emerald)';
+                    etaEl.style.borderColor = 'var(--primary-emerald)';
+                } else {
+                    etaEl.style.color = 'var(--warning-amber)';
+                    etaEl.style.borderColor = 'rgba(245,158,11,0.4)';
+                }
+            }
+            if (clientEtaInterval) clearInterval(clientEtaInterval);
+            if (clientRemainingSeconds > 0) {
+                clientEtaInterval = setInterval(() => {
+                    if (clientRemainingSeconds > 1) {
+                        clientRemainingSeconds--;
+                        if (etaEl) etaEl.innerText = formatSecondsToEta(clientRemainingSeconds);
+                    }
+                }, 1000);
+            }
+        }
+
+        function updateClientRouteProgress(currentDistKm) {
+            const bar = document.getElementById('client-route-progress-fill');
+            if (!bar) return;
+            if (!clientInitialDistKm || clientInitialDistKm <= 0.05) {
+                bar.style.width = currentDistKm <= 0.03 ? '100%' : '50%';
+                return;
+            }
+            const ratio = 1.0 - (Math.max(0, currentDistKm) / clientInitialDistKm);
+            const pct = Math.min(100, Math.max(8, Math.round(ratio * 100)));
+            bar.style.width = `${pct}%`;
+        }
+
+        function drawClientRoute(latlngs, fitBounds = false) {
+            if (!map || !latlngs || latlngs.length < 2) return;
+            clientRouteCoords = latlngs.map(pt => [pt[0], pt[1]]);
+            if (clientRouteGlow) map.removeLayer(clientRouteGlow);
+            if (clientRouteLine) map.removeLayer(clientRouteLine);
+
+            clientRouteGlow = L.polyline(clientRouteCoords, {
+                color: '#1E3A8A',
+                weight: 9,
+                opacity: 0.45,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            clientRouteLine = L.polyline(clientRouteCoords, {
+                color: '#3B82F6',
+                weight: 5,
+                opacity: 0.95,
+                dashArray: '10, 7',
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            if (fitBounds) {
+                try {
+                    map.fitBounds(clientRouteLine.getBounds(), { padding: [55, 55] });
+                } catch (e) {}
+            }
+        }
+
+        function trimClientRouteToTruck(lat, lng) {
+            if (!map || !clientRouteCoords || clientRouteCoords.length < 2) return;
+            let closestIdx = 0;
+            let minSqDist = Infinity;
+            for (let i = 0; i < clientRouteCoords.length; i++) {
+                const dLat = clientRouteCoords[i][0] - lat;
+                const dLng = clientRouteCoords[i][1] - lng;
+                const sq = dLat * dLat + dLng * dLng;
+                if (sq < minSqDist) {
+                    minSqDist = sq;
+                    closestIdx = i;
+                }
+            }
+            const remaining = [[lat, lng], ...clientRouteCoords.slice(Math.min(closestIdx + 1, clientRouteCoords.length - 1))];
+            clientRouteCoords = remaining;
+            if (clientRouteGlow) clientRouteGlow.setLatLngs(remaining);
+            if (clientRouteLine) clientRouteLine.setLatLngs(remaining);
+        }
+
+        async function fetchAndDrawClientRoute(startLat, startLng, endLat, endLng, fitBounds = false) {
+            try {
+                const res = await fetch('/api/geo/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        origin: { lat: startLat, lng: startLng },
+                        destination: { lat: endLat, lng: endLng }
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.latlngs) {
+                    drawClientRoute(data.latlngs, fitBounds);
+                    if (data.total_seconds !== undefined) {
+                        startClientEtaCountdown(data.total_seconds, data.distance_km);
+                    }
+                }
+            } catch (e) {
+                console.warn("Error trazando ruta en cliente:", e);
+            }
+        }
 
         function setAuthTab(tab) {
             document.getElementById('tab-pass').className = `tab-btn ${tab === 'pass' ? 'active' : ''}`;
@@ -1415,24 +1557,76 @@
             socket.on('tow_contacting_driver', (data) => {
                 document.getElementById('tracking-title').innerText = "Contactando grúa más cercana...";
                 document.getElementById('tracking-subtitle').innerText = data.message;
+                document.getElementById('assigned-driver-card').style.display = 'block';
+                if (data.plate) document.getElementById('assigned-plate').innerText = data.plate;
+                document.getElementById('assigned-driver-name').innerText = 'Confirmando operador (SLA 30s)...';
+                if (data.eta) {
+                    document.getElementById('assigned-distance').innerText = `${data.eta.distance_km} km`;
+                    startClientEtaCountdown(data.eta.total_seconds, data.eta.distance_km);
+                }
+                if (data.truck_position) {
+                    fetchAndDrawClientRoute(
+                        data.truck_position.lat,
+                        data.truck_position.lng,
+                        originCoords[0],
+                        originCoords[1],
+                        true
+                    );
+                }
             });
 
             socket.on('tow_assigned', (req) => {
                 document.getElementById('tracking-spinner').style.borderTopColor = '#10B981';
                 document.getElementById('tracking-title').innerText = "¡Grúa Confirmada y en Camino!";
-                document.getElementById('tracking-subtitle').innerText = "El operador aceptó el auxilio vial.";
+                document.getElementById('tracking-subtitle').innerText = "Ruta exacta trazada en el mapa • Monitoreo GPS activo.";
+
+                const distKm = req.metrics.distance_remaining_km !== undefined
+                    ? req.metrics.distance_remaining_km
+                    : req.metrics.distance_to_user_km;
+                clientInitialDistKm = Math.max(0.2, distKm);
 
                 document.getElementById('assigned-driver-card').style.display = 'block';
                 document.getElementById('assigned-plate').innerText = req.truck_plate || 'GRU-001';
                 document.getElementById('assigned-driver-name').innerText = req.driver_name || 'Operador Asignado';
-                document.getElementById('assigned-distance').innerText = `${req.metrics.distance_to_user_km} km`;
+                document.getElementById('assigned-distance').innerText = `${distKm} km restantes`;
+
+                if (req.eta && req.eta.total_seconds !== undefined) {
+                    startClientEtaCountdown(req.eta.total_seconds, distKm);
+                } else if (req.route && req.route.total_seconds !== undefined) {
+                    startClientEtaCountdown(req.route.total_seconds, distKm);
+                }
+
+                if (req.truck_position) {
+                    if (!activeTruckMarker) {
+                        const icon = L.divIcon({
+                            html: `<div style="background:#3B82F6; border:3px solid white; border-radius:50%; width:24px; height:24px; box-shadow:0 0 15px rgba(59, 130, 246, 0.85); display:flex; align-items:center; justify-content:center; font-size:12px;">🚛</div>`,
+                            iconSize: [24, 24],
+                            iconAnchor: [12, 12]
+                        });
+                        activeTruckMarker = L.marker([req.truck_position.lat, req.truck_position.lng], { icon }).addTo(map);
+                    } else {
+                        activeTruckMarker.setLatLng([req.truck_position.lat, req.truck_position.lng]);
+                    }
+                }
+
+                if (req.route && req.route.latlngs && req.route.latlngs.length >= 2) {
+                    drawClientRoute(req.route.latlngs, true);
+                } else if (req.truck_position) {
+                    fetchAndDrawClientRoute(
+                        req.truck_position.lat,
+                        req.truck_position.lng,
+                        req.origin.lat,
+                        req.origin.lng,
+                        true
+                    );
+                }
             });
 
             socket.on('truck_live_location', (data) => {
                 if (data.position) {
                     if (!activeTruckMarker) {
                         const icon = L.divIcon({
-                            html: `<div style="background:#3B82F6; border:3px solid white; border-radius:50%; width:24px; height:24px; box-shadow:0 0 15px rgba(59, 130, 246, 0.8);"></div>`,
+                            html: `<div style="background:#3B82F6; border:3px solid white; border-radius:50%; width:24px; height:24px; box-shadow:0 0 15px rgba(59, 130, 246, 0.85); display:flex; align-items:center; justify-content:center; font-size:12px;">🚛</div>`,
                             iconSize: [24, 24],
                             iconAnchor: [12, 12]
                         });
@@ -1440,8 +1634,24 @@
                     } else {
                         activeTruckMarker.setLatLng([data.position.lat, data.position.lng]);
                     }
+
+                    // Recortar dinámicamente la polilínea de la ruta conforme la grúa avanza
+                    trimClientRouteToTruck(data.position.lat, data.position.lng);
+
                     if (data.distance_remaining_km !== undefined) {
-                        document.getElementById('assigned-distance').innerText = `${data.distance_remaining_km} km restantes`;
+                        const d = data.distance_remaining_km;
+                        document.getElementById('assigned-distance').innerText =
+                            d <= 0.03 ? '0.00 km (¡En el sitio!)' : `${d} km restantes`;
+                    }
+
+                    if (data.eta && data.eta.total_seconds !== undefined) {
+                        startClientEtaCountdown(data.eta.total_seconds, data.distance_remaining_km);
+                        if (activeTruckMarker) {
+                            activeTruckMarker.bindTooltip(
+                                `<b>🚛 Grúa en camino</b><br>⏱️ ${data.eta.eta_formatted}<br>📏 ${data.distance_remaining_km} km`,
+                                { direction: 'top', offset: [0, -10] }
+                            );
+                        }
                     }
                 }
             });
@@ -1473,7 +1683,19 @@
                     'COMPLETED': '¡Servicio Finalizado exitosamente! Gracias por usar Josepo.'
                 };
                 document.getElementById('tracking-title').innerText = labels[data.new_status] || data.new_status;
+                if (data.new_status === 'ARRIVED_AT_USER') {
+                    document.getElementById('assigned-distance').innerText = '0.00 km (¡En el sitio!)';
+                    startClientEtaCountdown(0, 0);
+                } else if (data.route && data.route.latlngs && data.route.latlngs.length >= 2) {
+                    clientInitialDistKm = Math.max(0.2, data.route.distance_km || 1.0);
+                    drawClientRoute(data.route.latlngs, true);
+                    if (data.route.total_seconds !== undefined) {
+                        startClientEtaCountdown(data.route.total_seconds, data.route.distance_km);
+                    }
+                }
                 if (data.new_status === 'COMPLETED') {
+                    if (clientRouteGlow) { map.removeLayer(clientRouteGlow); clientRouteGlow = null; }
+                    if (clientRouteLine) { map.removeLayer(clientRouteLine); clientRouteLine = null; }
                     document.getElementById('rating-modal').style.display = 'flex';
                 }
             });
@@ -1588,6 +1810,12 @@
                 const data = await res.json();
                 if (res.ok && data.available) {
                     document.getElementById('quote-dist').innerText = `${data.distance_to_user_km} km`;
+                    const quoteEtaEl = document.getElementById('quote-eta');
+                    if (quoteEtaEl && data.eta) {
+                        quoteEtaEl.innerText = data.eta.eta_minutes > 0
+                            ? `~${data.eta.eta_minutes} min`
+                            : `${data.eta.eta_seconds} seg`;
+                    }
                     document.getElementById('quote-usd').innerText = `${data.pricing.cost_usd} USD`;
                     document.getElementById('quote-ves').innerText = `${data.pricing.cost_ves} VES`;
                 }
@@ -1637,6 +1865,22 @@
                 currentRequestId = data.request.id;
                 document.getElementById('selection-panel').style.display = 'none';
                 document.getElementById('tracking-panel').style.display = 'block';
+                document.getElementById('assigned-driver-card').style.display = 'block';
+
+                const reqObj = data.request;
+                const initDist = reqObj.metrics ? (reqObj.metrics.distance_remaining_km || reqObj.metrics.distance_to_user_km) : 0;
+                clientInitialDistKm = Math.max(0.2, initDist);
+                document.getElementById('assigned-plate').innerText = reqObj.truck_plate || 'GRU-001';
+                document.getElementById('assigned-driver-name').innerText = reqObj.driver_name || 'Contactando operador...';
+                document.getElementById('assigned-distance').innerText = `${initDist} km restantes`;
+
+                if (reqObj.eta && reqObj.eta.total_seconds !== undefined) {
+                    startClientEtaCountdown(reqObj.eta.total_seconds, initDist);
+                }
+                if (reqObj.route && reqObj.route.latlngs && reqObj.route.latlngs.length >= 2) {
+                    drawClientRoute(reqObj.route.latlngs, true);
+                }
+
                 document.getElementById('tracking-panel').scrollIntoView({ behavior: 'smooth' });
 
             } catch (err) {
@@ -1661,6 +1905,11 @@
 
         function resetUi() {
             currentRequestId = null;
+            clientInitialDistKm = null;
+            if (clientEtaInterval) {
+                clearInterval(clientEtaInterval);
+                clientEtaInterval = null;
+            }
             document.getElementById('selection-panel').style.display = 'block';
             document.getElementById('tracking-panel').style.display = 'none';
             document.getElementById('assigned-driver-card').style.display = 'none';
@@ -1672,6 +1921,15 @@
                 map.removeLayer(activeTruckMarker);
                 activeTruckMarker = null;
             }
+            if (clientRouteGlow) {
+                map.removeLayer(clientRouteGlow);
+                clientRouteGlow = null;
+            }
+            if (clientRouteLine) {
+                map.removeLayer(clientRouteLine);
+                clientRouteLine = null;
+            }
+            clientRouteCoords = [];
         }
 
         async function submitRatingAndShowReceipt() {
@@ -2139,6 +2397,63 @@
             }
         }
 
+        async function checkActiveClientTow() {
+            if (!clientToken) return;
+            try {
+                const res = await fetch('/api/tows/active', {
+                    headers: { 'Authorization': `Bearer ${clientToken}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const req = data.active_request;
+                if (!req) return;
+
+                currentRequestId = req.id;
+                document.getElementById('selection-panel').style.display = 'none';
+                document.getElementById('tracking-panel').style.display = 'block';
+                document.getElementById('assigned-driver-card').style.display = 'block';
+
+                const distKm = req.metrics
+                    ? (req.metrics.distance_remaining_km !== undefined ? req.metrics.distance_remaining_km : req.metrics.distance_to_user_km)
+                    : 0;
+                clientInitialDistKm = Math.max(0.2, req.metrics ? req.metrics.distance_to_user_km : distKm);
+
+                document.getElementById('assigned-plate').innerText = req.truck_plate || 'GRU-001';
+                document.getElementById('assigned-driver-name').innerText = req.driver_name || 'Operador en camino';
+                document.getElementById('assigned-distance').innerText =
+                    distKm <= 0.03 ? '0.00 km (¡En el sitio!)' : `${distKm} km restantes`;
+
+                if (req.status !== 'OFFERED' && req.status !== 'PENDING') {
+                    document.getElementById('tracking-spinner').style.borderTopColor = '#10B981';
+                    document.getElementById('tracking-title').innerText = "¡Grúa Confirmada y en Camino!";
+                    document.getElementById('tracking-subtitle').innerText = "Ruta exacta trazada en el mapa • Monitoreo GPS activo.";
+                }
+
+                if (req.eta && req.eta.total_seconds !== undefined) {
+                    startClientEtaCountdown(req.eta.total_seconds, distKm);
+                }
+
+                if (req.truck_position) {
+                    const icon = L.divIcon({
+                        html: `<div style="background:#3B82F6; border:3px solid white; border-radius:50%; width:24px; height:24px; box-shadow:0 0 15px rgba(59, 130, 246, 0.85); display:flex; align-items:center; justify-content:center; font-size:12px;">🚛</div>`,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+                    if (!activeTruckMarker) {
+                        activeTruckMarker = L.marker([req.truck_position.lat, req.truck_position.lng], { icon }).addTo(map);
+                    } else {
+                        activeTruckMarker.setLatLng([req.truck_position.lat, req.truck_position.lng]);
+                    }
+                }
+
+                if (req.route && req.route.latlngs && req.route.latlngs.length >= 2) {
+                    drawClientRoute(req.route.latlngs, true);
+                }
+            } catch (e) {
+                console.warn("Error comprobando servicio activo del cliente:", e);
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             initMap();
             loadSupportedBanks();
@@ -2149,6 +2464,7 @@
             useCurrentGpsLocation();
             checkAuthSession().then(() => {
                 loadGamificationProfile();
+                checkActiveClientTow();
             });
         });
     </script>

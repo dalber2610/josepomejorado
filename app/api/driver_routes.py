@@ -72,7 +72,12 @@ def get_current_order():
     ).first()
 
     if active_order:
-        return jsonify({'type': 'active', 'order': active_order.to_dict()}), 200
+        from app.services.geo_service import GeoService
+        order_dict = active_order.to_dict()
+        target_lat = active_order.dest_lat if (active_order.status == TowRequestStatus.IN_TRANSIT_TO_DEST and active_order.dest_lat is not None) else active_order.origin_lat
+        target_lng = active_order.dest_lng if (active_order.status == TowRequestStatus.IN_TRANSIT_TO_DEST and active_order.dest_lng is not None) else active_order.origin_lng
+        order_dict['route'] = GeoService.calculate_route(truck.current_lat, truck.current_lng, target_lat, target_lng)
+        return jsonify({'type': 'active', 'order': order_dict}), 200
 
     # Buscar si hay una oferta pendiente de 30s
     pending_offer = TowRequest.query.filter(
@@ -195,15 +200,34 @@ def post_telemetry():
         ])
     ).first()
 
+    eta_info = None
+    dist_remaining = None
     if active_req:
-        socketio.emit('truck_live_location', {
+        target_point = (
+            (active_req.dest_lat, active_req.dest_lng)
+            if active_req.status == TowRequestStatus.IN_TRANSIT_TO_DEST and active_req.dest_lat is not None
+            else (active_req.origin_lat, active_req.origin_lng)
+        )
+        dist_remaining = round(GeoService.calculate_distance_km((lat, lng), target_point), 2)
+        eta_info = GeoService.calculate_eta(dist_remaining)
+        live_payload = {
             'request_id': active_req.id,
             'truck_id': truck.id,
             'position': {'lat': lat, 'lng': lng},
+            'target': {'lat': target_point[0], 'lng': target_point[1]},
+            'distance_remaining_km': dist_remaining,
+            'eta': eta_info,
             'status': active_req.status.value
-        }, room=f"user_{active_req.client_id}")
+        }
+        socketio.emit('truck_live_location', live_payload, room=f"user_{active_req.client_id}")
+        socketio.emit('driver_route_progress', live_payload, room=f"driver_{driver_id}")
 
-    return jsonify({'status': 'ok', 'position': {'lat': lat, 'lng': lng}}), 200
+    return jsonify({
+        'status': 'ok',
+        'position': {'lat': lat, 'lng': lng},
+        'distance_remaining_km': dist_remaining,
+        'eta': eta_info
+    }), 200
 
 @driver_bp.route('/simulate-request', methods=['POST'])
 @jwt_required()

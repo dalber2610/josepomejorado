@@ -193,6 +193,36 @@ class TestPhase7ProductionHardening(unittest.TestCase):
         self.assertEqual(res_admin_ok.status_code, 200)
         self.assertEqual(res_admin_ok.get_json()['status'], 'success')
 
+    def test_06_exact_route_polyline_and_decreasing_eta(self):
+        """Verifica que el cálculo de ruta genere la polilínea exacta y que el ETA disminuya conforme la grúa se acerca."""
+        from app.services.geo_service import GeoService
+
+        # 1. Calcular ruta entre Chacaíto y Plaza Venezuela (Caracas)
+        route_res = self.client.post('/api/geo/route', json={
+            'origin': {'lat': 10.4880, 'lng': -66.8792},
+            'destination': {'lat': 10.5000, 'lng': -66.9167}
+        })
+        self.assertEqual(route_res.status_code, 200)
+        route_data = route_res.get_json()
+        self.assertIn('latlngs', route_data)
+        self.assertGreaterEqual(len(route_data['latlngs']), 2)
+        self.assertIn('total_seconds', route_data)
+        self.assertIn('eta_formatted', route_data)
+        self.assertGreater(route_data['total_seconds'], 0)
+
+        # 2. Verificar que el ETA disminuya progresivamente a medida que la distancia decrece
+        eta_far = GeoService.calculate_eta(4.5)      # A 4.5 km
+        eta_mid = GeoService.calculate_eta(2.0)      # A 2.0 km
+        eta_near = GeoService.calculate_eta(0.4)     # A 400 metros
+        eta_arrived = GeoService.calculate_eta(0.01) # En el sitio (< 30m)
+
+        self.assertGreater(eta_far['total_seconds'], eta_mid['total_seconds'])
+        self.assertGreater(eta_mid['total_seconds'], eta_near['total_seconds'])
+        self.assertGreater(eta_near['total_seconds'], eta_arrived['total_seconds'])
+        self.assertEqual(eta_arrived['total_seconds'], 0)
+        self.assertTrue(eta_arrived['arrived'])
+        self.assertIn('En el sitio', eta_arrived['eta_formatted'])
+
 
 if __name__ == '__main__':
     unittest.main()

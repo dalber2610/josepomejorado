@@ -52,10 +52,11 @@ def reverse_geocode():
         return jsonify({'error': 'No fue posible resolver la dirección.'}), 500
 
 @geo_bp.route('/calculate-route', methods=['POST'])
+@geo_bp.route('/route', methods=['POST'])
 def calculate_route():
     data = request.get_json() or {}
-    start = data.get('start', {})
-    end = data.get('end', {})
+    start = data.get('start') or data.get('origin') or {}
+    end = data.get('end') or data.get('destination') or {}
 
     start_lat, start_lng = validate_coordinates(start.get('lat'), start.get('lng'))
     end_lat, end_lng = validate_coordinates(end.get('lat'), end.get('lng'))

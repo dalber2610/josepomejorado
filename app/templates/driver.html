@@ -520,6 +520,24 @@
                 <div style="margin: 6px 0; font-size: 13px; font-weight: 700;" id="trip-client-name">Cliente: Juan Pérez</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;" id="trip-origin-addr">Ubicación del vehículo...</div>
 
+                <!-- Panel de Ruta Exacta y Tiempo Estimado (ETA Dinámico) -->
+                <div style="background: #0F172A; border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 12px; color: var(--text-muted);">📏 Distancia por ruta:</span>
+                        <span style="font-size: 13px; font-weight: 800; color: var(--secondary-blue);" id="driver-route-dist">-- km</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 12px; color: var(--text-muted);">⏱️ Tiempo aprox. llegada:</span>
+                        <span style="font-size: 13px; font-weight: 800; color: var(--warning-amber); background: rgba(245, 158, 11, 0.14); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.4);" id="driver-route-eta">Calculando...</span>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: #1E293B; border-radius: 999px; overflow: hidden; margin-bottom: 8px;">
+                        <div id="driver-route-progress-fill" style="width: 8%; height: 100%; background: linear-gradient(90deg, #3B82F6, #10B981); transition: width 0.35s ease;"></div>
+                    </div>
+                    <button id="btn-auto-drive" onclick="toggleAutoDriveRoute()" style="width: 100%; background: linear-gradient(135deg, #3B82F6, #2563EB); color: white; border: none; padding: 9px 12px; border-radius: 8px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        🚛 Avanzar por la Ruta (Simular Llegada en Vivo)
+                    </button>
+                </div>
+
                 <div class="trip-stages">
                     <button class="stage-btn" id="stage-in-transit-user" onclick="updateTripStage('IN_TRANSIT_TO_USER')">
                         1. En camino al cliente
@@ -557,6 +575,10 @@
                 <div class="detail-row">
                     <span class="detail-label">Distancia hacia él:</span>
                     <span class="detail-val" id="offer-dist">3.5 km</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Tiempo estimado (ETA):</span>
+                    <span class="detail-val" id="offer-eta" style="color: var(--warning-amber);">~5 min</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Origen:</span>
@@ -626,7 +648,13 @@
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
     <script>
-        let map, truckMarker, clientMarker, routePolyline;
+        let map, truckMarker, clientMarker, destTripMarker, routeGlowLine, routePolyline;
+        let driverRouteCoords = [];
+        let driverInitialDistKm = null;
+        let driverRemainingSeconds = 0;
+        let driverEtaInterval = null;
+        let autoDriveInterval = null;
+        let activeTripData = null;
         let socket;
         let authToken = localStorage.getItem('josepo_driver_token') || null;
         let driverUser = null;
@@ -637,6 +665,195 @@
         let gpsWatchId = null;
         let currentPos = [10.5000, -66.9167];
         let gpsMode = 'sim'; // Por defecto en modo mapa/simulación para no desfasar coordenadas demo (Auditoría #2)
+
+        function formatDriverSecondsToEta(sec) {
+            const s = Math.max(0, Math.round(sec || 0));
+            if (s <= 0) return "¡En el sitio! (0 min)";
+            const m = Math.floor(s / 60);
+            const r = s % 60;
+            if (m > 0) return `${m} min ${String(r).padStart(2, '0')} seg`;
+            return `${r} seg (Llegando)`;
+        }
+
+        function startDriverEtaCountdown(totalSeconds, distKm) {
+            driverRemainingSeconds = Math.max(0, Math.round(totalSeconds || 0));
+            if (distKm !== undefined && distKm !== null) {
+                if (!driverInitialDistKm || distKm > driverInitialDistKm) {
+                    driverInitialDistKm = Math.max(0.2, distKm);
+                }
+                const distEl = document.getElementById('driver-route-dist');
+                if (distEl) {
+                    distEl.innerText = distKm <= 0.03 ? '0.00 km (¡En el sitio!)' : `${distKm} km restantes`;
+                }
+                const bar = document.getElementById('driver-route-progress-fill');
+                if (bar && driverInitialDistKm > 0.05) {
+                    const ratio = 1.0 - (Math.max(0, distKm) / driverInitialDistKm);
+                    const pct = Math.min(100, Math.max(8, Math.round(ratio * 100)));
+                    bar.style.width = `${pct}%`;
+                }
+            }
+
+            const etaEl = document.getElementById('driver-route-eta');
+            if (etaEl) {
+                etaEl.innerText = formatDriverSecondsToEta(driverRemainingSeconds);
+                if (driverRemainingSeconds <= 0) {
+                    etaEl.style.color = 'var(--primary-emerald)';
+                    etaEl.style.borderColor = 'var(--primary-emerald)';
+                } else {
+                    etaEl.style.color = 'var(--warning-amber)';
+                    etaEl.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                }
+            }
+
+            if (driverEtaInterval) clearInterval(driverEtaInterval);
+            if (driverRemainingSeconds > 0) {
+                driverEtaInterval = setInterval(() => {
+                    if (driverRemainingSeconds > 1) {
+                        driverRemainingSeconds--;
+                        if (etaEl) etaEl.innerText = formatDriverSecondsToEta(driverRemainingSeconds);
+                    }
+                }, 1000);
+            }
+        }
+
+        function subdivideRoutePoints(coords, maxStepDeg = 0.0009) {
+            if (!coords || coords.length < 2) return coords || [];
+            const dense = [];
+            for (let i = 0; i < coords.length - 1; i++) {
+                const a = coords[i];
+                const b = coords[i + 1];
+                const dLat = b[0] - a[0];
+                const dLng = b[1] - a[1];
+                const distDeg = Math.hypot(dLat, dLng);
+                const segments = Math.max(1, Math.min(12, Math.ceil(distDeg / maxStepDeg)));
+                for (let s = 0; s < segments; s++) {
+                    const t = s / segments;
+                    dense.push([
+                        Number((a[0] + dLat * t).toFixed(6)),
+                        Number((a[1] + dLng * t).toFixed(6))
+                    ]);
+                }
+            }
+            dense.push(coords[coords.length - 1]);
+            return dense;
+        }
+
+        function drawDriverRoute(latlngs, fitBounds = false) {
+            if (!map || !latlngs || latlngs.length < 2) return;
+            driverRouteCoords = subdivideRoutePoints(latlngs.map(pt => [pt[0], pt[1]]));
+
+            if (routeGlowLine) map.removeLayer(routeGlowLine);
+            if (routePolyline) map.removeLayer(routePolyline);
+
+            routeGlowLine = L.polyline(driverRouteCoords, {
+                color: '#1E3A8A',
+                weight: 9,
+                opacity: 0.45,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            routePolyline = L.polyline(driverRouteCoords, {
+                color: '#3B82F6',
+                weight: 5,
+                opacity: 0.95,
+                dashArray: '10, 7',
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            if (fitBounds) {
+                try {
+                    map.fitBounds(routePolyline.getBounds(), { padding: [55, 55] });
+                } catch (e) {}
+            }
+        }
+
+        function trimDriverRouteToTruck(lat, lng) {
+            if (!map || !driverRouteCoords || driverRouteCoords.length < 2) return;
+            let closestIdx = 0;
+            let minSq = Infinity;
+            for (let i = 0; i < driverRouteCoords.length; i++) {
+                const dLat = driverRouteCoords[i][0] - lat;
+                const dLng = driverRouteCoords[i][1] - lng;
+                const sq = dLat * dLat + dLng * dLng;
+                if (sq < minSq) {
+                    minSq = sq;
+                    closestIdx = i;
+                }
+            }
+            const remaining = [[lat, lng], ...driverRouteCoords.slice(Math.min(closestIdx + 1, driverRouteCoords.length - 1))];
+            driverRouteCoords = remaining;
+            if (routeGlowLine) routeGlowLine.setLatLngs(remaining);
+            if (routePolyline) routePolyline.setLatLngs(remaining);
+        }
+
+        async function fetchAndDrawDriverRoute(startLat, startLng, endLat, endLng, fitBounds = false) {
+            try {
+                const res = await fetch('/api/geo/route', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        origin: { lat: startLat, lng: startLng },
+                        destination: { lat: endLat, lng: endLng }
+                    })
+                });
+                const data = await res.json();
+                if (res.ok && data.latlngs) {
+                    drawDriverRoute(data.latlngs, fitBounds);
+                    if (data.total_seconds !== undefined) {
+                        startDriverEtaCountdown(data.total_seconds, data.distance_km);
+                    }
+                }
+            } catch (e) {
+                console.warn("Error calculando ruta para chofer:", e);
+            }
+        }
+
+        function stopAutoDriveRoute() {
+            if (autoDriveInterval) {
+                clearInterval(autoDriveInterval);
+                autoDriveInterval = null;
+            }
+            const btn = document.getElementById('btn-auto-drive');
+            if (btn) {
+                btn.innerHTML = '🚛 Avanzar por la Ruta (Simular Llegada en Vivo)';
+                btn.style.background = 'linear-gradient(135deg, #3B82F6, #2563EB)';
+            }
+        }
+
+        function toggleAutoDriveRoute() {
+            if (autoDriveInterval) {
+                stopAutoDriveRoute();
+                return;
+            }
+            if (!driverRouteCoords || driverRouteCoords.length < 2) {
+                alert("No hay una ruta activa trazada en este momento.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-auto-drive');
+            if (btn) {
+                btn.innerHTML = '⏸️ Pausar Recorrido en Vivo';
+                btn.style.background = 'linear-gradient(135deg, #F59E0B, #D97706)';
+            }
+
+            autoDriveInterval = setInterval(() => {
+                if (!driverRouteCoords || driverRouteCoords.length <= 1) {
+                    stopAutoDriveRoute();
+                    startDriverEtaCountdown(0, 0);
+                    return;
+                }
+                // Avanzar al siguiente punto de la ruta calle por calle
+                const nextPt = driverRouteCoords[1];
+                emitPosition(nextPt[0], nextPt[1], true);
+
+                if (driverRouteCoords.length <= 2) {
+                    stopAutoDriveRoute();
+                    startDriverEtaCountdown(0, 0);
+                }
+            }, 850);
+        }
 
         // Sintetizador de audio para alerta sonora (Web Audio API nativa sin archivos)
         function playAlertSound() {
@@ -732,6 +949,11 @@
                 socket = null;
             }
 
+            stopAutoDriveRoute();
+            if (driverEtaInterval) {
+                clearInterval(driverEtaInterval);
+                driverEtaInterval = null;
+            }
             document.getElementById('active-trip-card').style.display = 'none';
             document.getElementById('offer-modal').classList.remove('active');
             document.getElementById('inspection-modal').classList.remove('active');
@@ -739,10 +961,19 @@
                 map.removeLayer(clientMarker);
                 clientMarker = null;
             }
+            if (destTripMarker) {
+                map.removeLayer(destTripMarker);
+                destTripMarker = null;
+            }
+            if (routeGlowLine) {
+                map.removeLayer(routeGlowLine);
+                routeGlowLine = null;
+            }
             if (routePolyline) {
                 map.removeLayer(routePolyline);
                 routePolyline = null;
             }
+            driverRouteCoords = [];
 
             document.getElementById('driver-name-display').innerText = '(Desconectado)';
             showLoginModal();
@@ -879,11 +1110,24 @@
 
             // Evento: El cliente canceló la solicitud
             socket.on('tow_cancelled', (data) => {
+                stopAutoDriveRoute();
+                if (driverEtaInterval) clearInterval(driverEtaInterval);
                 alert(data.message || "El cliente ha cancelado el servicio.");
                 document.getElementById('active-trip-card').style.display = 'none';
                 activeRequestId = null;
-                if (clientMarker) map.removeLayer(clientMarker);
-                if (routePolyline) map.removeLayer(routePolyline);
+                activeTripData = null;
+                if (clientMarker) { map.removeLayer(clientMarker); clientMarker = null; }
+                if (destTripMarker) { map.removeLayer(destTripMarker); destTripMarker = null; }
+                if (routeGlowLine) { map.removeLayer(routeGlowLine); routeGlowLine = null; }
+                if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+                driverRouteCoords = [];
+            });
+
+            // Evento: Progreso de ruta y ETA decreciente en vivo
+            socket.on('driver_route_progress', (data) => {
+                if (data.eta && data.eta.total_seconds !== undefined) {
+                    startDriverEtaCountdown(data.eta.total_seconds, data.distance_remaining_km);
+                }
             });
 
             // Fase 3: Eventos de Garantía y Pago en Escrow
@@ -898,13 +1142,27 @@
 
         function showOfferModal(offer) {
             playAlertSound();
-            document.getElementById('offer-client').innerText = offer.client_name;
-            document.getElementById('offer-dist').innerText = `${offer.distance_to_user_km} km`;
+            document.getElementById('offer-client').innerText = offer.client_name || 'Cliente SOS';
+            const distVal = offer.distance_to_user_km !== undefined
+                ? offer.distance_to_user_km
+                : (offer.metrics ? offer.metrics.distance_to_user_km : 0);
+            document.getElementById('offer-dist').innerText = `${distVal} km`;
+            const offerEtaEl = document.getElementById('offer-eta');
+            if (offerEtaEl) {
+                if (offer.eta && offer.eta.eta_formatted) {
+                    offerEtaEl.innerText = offer.eta.eta_formatted;
+                } else {
+                    const estMin = Math.max(1, Math.round((distVal * 1.22 / 35.0) * 60));
+                    offerEtaEl.innerText = `~${estMin} min`;
+                }
+            }
             document.getElementById('offer-origin').innerText = offer.origin.address || 'Ubicación actual';
             document.getElementById('offer-dest').innerText = offer.destination ? (offer.destination.address || 'Destino seleccionado') : 'No especificado';
             
-            const netUsd = offer.driver_net_usd || (offer.cost_usd * 0.85).toFixed(2);
-            const netVes = offer.driver_net_ves || (offer.cost_ves * 0.85).toFixed(2);
+            const rawUsd = offer.cost_usd !== undefined ? offer.cost_usd : (offer.pricing ? offer.pricing.cost_usd : 0);
+            const rawVes = offer.cost_ves !== undefined ? offer.cost_ves : (offer.pricing ? offer.pricing.cost_ves : 0);
+            const netUsd = offer.driver_net_usd || (rawUsd * 0.85).toFixed(2);
+            const netVes = offer.driver_net_ves || (rawVes * 0.85).toFixed(2);
             document.getElementById('offer-price').innerText = `${netUsd} USD (${netVes} VES)`;
             document.getElementById('offer-escrow').innerText = offer.has_escrow ? '🔒 Escrow Confirmado' : '🔒 Pago Móvil Protegido';
             
@@ -956,26 +1214,64 @@
 
         function startActiveTrip(req) {
             activeRequestId = req.id;
+            activeTripData = req;
+            stopAutoDriveRoute();
+
+            const distKm = req.metrics
+                ? (req.metrics.distance_remaining_km !== undefined ? req.metrics.distance_remaining_km : req.metrics.distance_to_user_km)
+                : 1.5;
+            driverInitialDistKm = Math.max(0.2, distKm);
+
             document.getElementById('active-trip-card').style.display = 'block';
             document.getElementById('trip-client-name').innerText = `Cliente: ${req.client_name} (Tel: ${req.client_phone || 'N/A'})`;
             document.getElementById('trip-price-display').innerText = `${req.pricing.cost_usd} USD`;
             document.getElementById('trip-origin-addr').innerText = req.origin.address || 'Lugar del vehículo';
 
+            if (req.eta && req.eta.total_seconds !== undefined) {
+                startDriverEtaCountdown(req.eta.total_seconds, distKm);
+            } else if (req.route && req.route.total_seconds !== undefined) {
+                startDriverEtaCountdown(req.route.total_seconds, distKm);
+            }
+
             // Marcar origen del cliente en el mapa
             if (clientMarker) map.removeLayer(clientMarker);
             clientMarker = L.marker([req.origin.lat, req.origin.lng], {
                 icon: L.divIcon({
-                    html: `<div style="background:#EF4444; border:2px solid white; border-radius:50%; width:18px; height:18px;"></div>`,
-                    iconSize: [18, 18]
+                    html: `<div style="background:#EF4444; border:3px solid white; border-radius:50%; width:20px; height:20px; box-shadow:0 0 10px rgba(239,68,68,0.8);"></div>`,
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
                 })
             }).addTo(map);
+            clientMarker.bindTooltip("📍 Vehículo del Cliente (Punto de Auxilio)", { direction: 'top' });
 
-            map.fitBounds([currentPos, [req.origin.lat, req.origin.lng]], { padding: [50, 50] });
-            updateStageHighlight('IN_TRANSIT_TO_USER');
+            // Si tiene destino configurado, marcarlo también
+            if (destTripMarker) { map.removeLayer(destTripMarker); destTripMarker = null; }
+            if (req.destination && req.destination.lat !== null && req.destination.lat !== undefined) {
+                destTripMarker = L.marker([req.destination.lat, req.destination.lng], {
+                    icon: L.divIcon({
+                        html: `<div style="background:#F59E0B; border:2px solid white; border-radius:50%; width:18px; height:18px; box-shadow:0 0 8px rgba(245,158,11,0.7);"></div>`,
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                    })
+                }).addTo(map);
+                destTripMarker.bindTooltip("🏁 Taller / Destino de Remolque", { direction: 'top' });
+            }
+
+            // Trazar la ruta exacta sobre las calles
+            if (req.route && req.route.latlngs && req.route.latlngs.length >= 2) {
+                drawDriverRoute(req.route.latlngs, true);
+            } else {
+                const targetLat = (req.status === 'IN_TRANSIT_TO_DEST' && req.destination) ? req.destination.lat : req.origin.lat;
+                const targetLng = (req.status === 'IN_TRANSIT_TO_DEST' && req.destination) ? req.destination.lng : req.origin.lng;
+                fetchAndDrawDriverRoute(currentPos[0], currentPos[1], targetLat, targetLng, true);
+            }
+
+            updateStageHighlight(req.status && req.status !== 'ASSIGNED' ? req.status : 'IN_TRANSIT_TO_USER');
         }
 
         async function updateTripStage(stage) {
             if (!activeRequestId) return;
+            stopAutoDriveRoute();
             try {
                 const res = await fetch('/api/driver/update-trip-status', {
                     method: 'POST',
@@ -989,12 +1285,33 @@
                 if (res.ok) {
                     updateStageHighlight(stage);
                     if (stage === 'ARRIVED_AT_USER') {
+                        startDriverEtaCountdown(0, 0);
                         document.getElementById('inspection-modal').classList.add('active');
+                    } else if (stage === 'IN_TRANSIT_TO_DEST') {
+                        if (data.route && data.route.latlngs && data.route.latlngs.length >= 2) {
+                            driverInitialDistKm = Math.max(0.2, data.route.distance_km || 1.0);
+                            drawDriverRoute(data.route.latlngs, true);
+                            startDriverEtaCountdown(data.route.total_seconds, data.route.distance_km);
+                        } else if (activeTripData && activeTripData.destination) {
+                            fetchAndDrawDriverRoute(
+                                currentPos[0],
+                                currentPos[1],
+                                activeTripData.destination.lat,
+                                activeTripData.destination.lng,
+                                true
+                            );
+                        }
                     } else if (stage === 'COMPLETED') {
+                        if (driverEtaInterval) clearInterval(driverEtaInterval);
                         alert("¡Servicio finalizado con éxito! La grúa vuelve a estar disponible.");
                         document.getElementById('active-trip-card').style.display = 'none';
                         activeRequestId = null;
-                        if (clientMarker) map.removeLayer(clientMarker);
+                        activeTripData = null;
+                        if (clientMarker) { map.removeLayer(clientMarker); clientMarker = null; }
+                        if (destTripMarker) { map.removeLayer(destTripMarker); destTripMarker = null; }
+                        if (routeGlowLine) { map.removeLayer(routeGlowLine); routeGlowLine = null; }
+                        if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+                        driverRouteCoords = [];
                     }
                 }
             } catch(e) {
@@ -1039,6 +1356,7 @@
         }
 
         function updateStageHighlight(currentStage) {
+            if (activeTripData) activeTripData.status = currentStage;
             const stages = ['IN_TRANSIT_TO_USER', 'ARRIVED_AT_USER', 'IN_TRANSIT_TO_DEST', 'COMPLETED'];
             const buttons = {
                 'IN_TRANSIT_TO_USER': document.getElementById('stage-in-transit-user'),
@@ -1131,13 +1449,30 @@
         }
 
         function onMapSimulateMove(e) {
-            emitPosition(e.latlng.lat, e.latlng.lng);
+            stopAutoDriveRoute();
+            emitPosition(e.latlng.lat, e.latlng.lng, false);
         }
 
-        function emitPosition(lat, lng) {
+        function emitPosition(lat, lng, fromAutoRoute = false) {
             currentPos = [lat, lng];
-            const isDevSim = (gpsMode === 'sim');
+            const isDevSim = (gpsMode === 'sim') || fromAutoRoute;
             if (truckMarker) truckMarker.setLatLng(currentPos);
+
+            if (activeRequestId) {
+                if (fromAutoRoute && driverRouteCoords.length >= 2) {
+                    trimDriverRouteToTruck(lat, lng);
+                } else if (activeTripData) {
+                    // Si el usuario movió la grúa haciendo click libre en el mapa, recalcular ruta vial desde el nuevo punto
+                    const targetLat = (activeTripData.status === 'IN_TRANSIT_TO_DEST' && activeTripData.destination)
+                        ? activeTripData.destination.lat
+                        : activeTripData.origin.lat;
+                    const targetLng = (activeTripData.status === 'IN_TRANSIT_TO_DEST' && activeTripData.destination)
+                        ? activeTripData.destination.lng
+                        : activeTripData.origin.lng;
+                    fetchAndDrawDriverRoute(lat, lng, targetLat, targetLng, false);
+                }
+            }
+
             if (socket && socket.connected) {
                 socket.emit('update_driver_position', { lat, lng, is_dev_sim: isDevSim });
             }
@@ -1149,7 +1484,14 @@
                         'Authorization': `Bearer ${authToken}`
                     },
                     body: JSON.stringify({ lat, lng, is_dev_sim: isDevSim })
-                }).catch(() => {});
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.eta && data.eta.total_seconds !== undefined) {
+                        startDriverEtaCountdown(data.eta.total_seconds, data.distance_remaining_km);
+                    }
+                })
+                .catch(() => {});
             }
         }
 

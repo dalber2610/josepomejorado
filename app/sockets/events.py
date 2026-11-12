@@ -231,14 +231,20 @@ def handle_driver_position(data):
                 else (active_request.origin_lat, active_request.origin_lng)
             )
             dist_remaining = GeoService.calculate_distance_km((lat, lng), target_point)
+            eta_info = GeoService.calculate_eta(dist_remaining)
 
-            socketio.emit('truck_live_location', {
+            live_payload = {
                 'request_id': active_request.id,
                 'truck_id': truck.id,
                 'position': {'lat': lat, 'lng': lng},
+                'target': {'lat': target_point[0], 'lng': target_point[1]},
                 'distance_remaining_km': round(dist_remaining, 2),
+                'eta': eta_info,
                 'status': active_request.status.value
-            }, room=f"user_{active_request.client_id}")
+            }
+
+            socketio.emit('truck_live_location', live_payload, room=f"user_{active_request.client_id}")
+            socketio.emit('driver_route_progress', live_payload, room=f"driver_{driver_id}")
 
         # Broadcast general de posición para el mapa global de unidades
         socketio.emit('truck_position_broadcast', {

@@ -72,9 +72,18 @@ def request_tow():
             dest_lng=dest_lng,
             request_id=request_id
         )
+        from app.services.geo_service import GeoService
+        req_dict = tow_request.to_dict()
+        if req_dict.get('truck_position'):
+            req_dict['route'] = GeoService.calculate_route(
+                req_dict['truck_position']['lat'],
+                req_dict['truck_position']['lng'],
+                orig_lat,
+                orig_lng
+            )
         return jsonify({
             'message': 'Buscando y contactando a la grúa más cercana...',
-            'request': tow_request.to_dict()
+            'request': req_dict
         }), 201
 
     except ValueError as ve:
@@ -98,7 +107,19 @@ def get_active_tow():
     if not active_req:
         return jsonify({'active_request': None}), 200
 
-    return jsonify({'active_request': active_req.to_dict()}), 200
+    from app.services.geo_service import GeoService
+    req_dict = active_req.to_dict()
+    if req_dict.get('truck_position'):
+        target_lat = active_req.dest_lat if (active_req.status == TowRequestStatus.IN_TRANSIT_TO_DEST and active_req.dest_lat is not None) else active_req.origin_lat
+        target_lng = active_req.dest_lng if (active_req.status == TowRequestStatus.IN_TRANSIT_TO_DEST and active_req.dest_lng is not None) else active_req.origin_lng
+        req_dict['route'] = GeoService.calculate_route(
+            req_dict['truck_position']['lat'],
+            req_dict['truck_position']['lng'],
+            target_lat,
+            target_lng
+        )
+
+    return jsonify({'active_request': req_dict}), 200
 
 @tow_bp.route('/<request_id>', methods=['GET'])
 @jwt_required()

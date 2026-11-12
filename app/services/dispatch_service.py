@@ -38,13 +38,20 @@ class DispatchService:
 
         total_distance = dist_to_user + trip_dist
         cost_breakdown = CurrencyService.calculate_cost(total_distance)
+        eta_info = GeoService.calculate_eta(dist_to_user)
 
         return {
             'available': True,
             'nearest_truck_id': closest_truck.id,
+            'nearest_truck_plate': closest_truck.license_plate,
+            'nearest_truck_position': {
+                'lat': closest_truck.current_lat,
+                'lng': closest_truck.current_lng
+            },
             'distance_to_user_km': round(dist_to_user, 2),
             'trip_distance_km': round(trip_dist, 2),
             'total_distance_km': round(total_distance, 2),
+            'eta': eta_info,
             'pricing': cost_breakdown
         }
 
@@ -175,8 +182,18 @@ class DispatchService:
 
             db.session.commit()
 
-            # Notificar al cliente solicitante
-            socketio.emit('tow_assigned', tow_req.to_dict(), room=f"user_{tow_req.client_id}")
+            # Calcular ruta vial exacta desde la posición de la grúa hasta el sitio del incidente
+            route_data = GeoService.calculate_route(
+                driver_truck.current_lat,
+                driver_truck.current_lng,
+                tow_req.origin_lat,
+                tow_req.origin_lng
+            )
+            req_dict = tow_req.to_dict()
+            req_dict['route'] = route_data
+
+            # Notificar al cliente solicitante con la ruta exacta y el ETA
+            socketio.emit('tow_assigned', req_dict, room=f"user_{tow_req.client_id}")
 
             # Notificar al público que la grúa ahora está ocupada
             socketio.emit('truck_status_update', {
@@ -185,7 +202,7 @@ class DispatchService:
                 'position': {'lat': driver_truck.current_lat, 'lng': driver_truck.current_lng}
             })
 
-            return {'status': 'assigned', 'request': tow_req.to_dict()}
+            return {'status': 'assigned', 'request': req_dict}
 
         else:
             # Chofer RECHAZÓ: Añadir a lista de rechazadas y rotar
@@ -288,6 +305,7 @@ class DispatchService:
         if not truck.driver_id:
             return
 
+        eta_info = GeoService.calculate_eta(req.distance_to_user_km)
         payload = {
             'request_id': req.id,
             'client_name': req.client.full_name if req.client else 'Cliente en emergencia',
@@ -305,6 +323,7 @@ class DispatchService:
             'distance_to_user_km': round(req.distance_to_user_km, 2),
             'trip_distance_km': round(req.trip_distance_km, 2),
             'total_distance_km': round(req.total_distance_km, 2),
+            'eta': eta_info,
             'cost_ves': round(req.cost_ves_cents / 100.0, 2),
             'cost_usd': round(req.cost_usd_cents / 100.0, 2),
             'driver_net_ves': round((req.cost_ves_cents * 0.85) / 100.0, 2),
@@ -322,7 +341,9 @@ class DispatchService:
             'request_id': req.id,
             'truck_id': truck.id,
             'plate': truck.license_plate,
-            'message': f'Contactando a la grúa {truck.license_plate} a {round(req.distance_to_user_km, 1)} km de ti...'
+            'truck_position': {'lat': truck.current_lat, 'lng': truck.current_lng},
+            'eta': eta_info,
+            'message': f'Contactando a la grúa {truck.license_plate} a {round(req.distance_to_user_km, 1)} km (~{eta_info["eta_formatted"]})...'
         }, room=f"user_{req.client_id}")
 
     @classmethod
@@ -373,10 +394,29 @@ class DispatchService:
         else:
             db.session.commit()
 
+        # Calcular ruta actualizada según la etapa del servicio
+        route_data = None
+        if new_status == TowRequestStatus.IN_TRANSIT_TO_USER:
+            route_data = GeoService.calculate_route(
+                driver_truck.current_lat, driver_truck.current_lng,
+                tow_req.origin_lat, tow_req.origin_lng
+            )
+        elif new_status == TowRequestStatus.IN_TRANSIT_TO_DEST and tow_req.dest_lat is not None and tow_req.dest_lng is not None:
+            route_data = GeoService.calculate_route(
+                driver_truck.current_lat, driver_truck.current_lng,
+                tow_req.dest_lat, tow_req.dest_lng
+            )
+        elif new_status == TowRequestStatus.ARRIVED_AT_USER:
+            route_data = GeoService.calculate_route(
+                tow_req.origin_lat, tow_req.origin_lng,
+                tow_req.origin_lat, tow_req.origin_lng
+            )
+
         # Notificar al cliente solicitante
         socketio.emit('tow_status_changed', {
             'request_id': tow_req.id,
             'new_status': new_status.value,
+            'route': route_data,
             'timestamp': datetime.now(timezone.utc).isoformat()
         }, room=f"user_{tow_req.client_id}")
 
@@ -387,7 +427,7 @@ class DispatchService:
                 'position': {'lat': driver_truck.current_lat, 'lng': driver_truck.current_lng}
             })
 
-        return {'status': 'success', 'new_status': new_status.value}
+        return {'status': 'success', 'new_status': new_status.value, 'route': route_data}
 
     @classmethod
     def cancel_request(cls, request_id: str, user_id: int) -> TowRequest:

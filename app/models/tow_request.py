@@ -66,13 +66,37 @@ class TowRequest(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
     def to_dict(self):
+        from app.services.geo_service import GeoService
+
+        active_truck = self.assigned_truck or self.offered_truck
+        truck_pos = None
+        current_dist_km = round(self.distance_to_user_km, 2)
+
+        if active_truck and active_truck.current_lat is not None and active_truck.current_lng is not None:
+            truck_pos = {
+                'lat': active_truck.current_lat,
+                'lng': active_truck.current_lng
+            }
+            target_coords = (
+                (self.dest_lat, self.dest_lng)
+                if self.status == TowRequestStatus.IN_TRANSIT_TO_DEST and self.dest_lat is not None
+                else (self.origin_lat, self.origin_lng)
+            )
+            current_dist_km = round(
+                GeoService.calculate_distance_km((active_truck.current_lat, active_truck.current_lng), target_coords),
+                2
+            )
+
+        eta_info = GeoService.calculate_eta(current_dist_km)
+
         return {
             'id': self.id,
             'client_id': self.client_id,
             'client_name': self.client.full_name if self.client else None,
             'client_phone': self.client.phone_number if self.client else None,
             'truck_id': self.truck_id,
-            'truck_plate': self.assigned_truck.license_plate if self.assigned_truck else None,
+            'truck_plate': self.assigned_truck.license_plate if self.assigned_truck else (self.offered_truck.license_plate if self.offered_truck else None),
+            'truck_position': truck_pos,
             'driver_name': self.assigned_truck.driver.full_name if (self.assigned_truck and self.assigned_truck.driver) else None,
             'driver_phone': self.assigned_truck.driver.phone_number if (self.assigned_truck and self.assigned_truck.driver) else None,
             'offered_truck_id': self.offered_truck_id,
@@ -93,9 +117,11 @@ class TowRequest(db.Model):
             } if self.dest_lat is not None else None,
             'metrics': {
                 'distance_to_user_km': round(self.distance_to_user_km, 2),
+                'distance_remaining_km': current_dist_km,
                 'trip_distance_km': round(self.trip_distance_km, 2),
                 'total_distance_km': round(self.total_distance_km, 2)
             },
+            'eta': eta_info,
             'pricing': {
                 'cost_ves': round(self.cost_ves_cents / 100.0, 2),
                 'cost_usd': round(self.cost_usd_cents / 100.0, 2),
